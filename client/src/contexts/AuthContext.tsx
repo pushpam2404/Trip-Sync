@@ -27,6 +27,17 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const normalizePhone = (phone: string): string => {
+  const clean = phone.replace(/[^0-9]/g, '');
+  if (clean.length === 10) {
+    return `+91 ${clean}`;
+  }
+  if (clean.length > 10 && clean.startsWith('91')) {
+    return `+91 ${clean.slice(2)}`;
+  }
+  return phone;
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
@@ -59,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleLogin = useCallback(async (phone: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/auth/login', { phone, password });
+      const normalizedPhone = normalizePhone(phone);
+      const response = await api.post('/auth/login', { phone: normalizedPhone, password });
       const userData = response.data;
       setUserState({
         name: userData.name,
@@ -116,9 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         regNumber: reg.toUpperCase(),
       }));
 
+      const normalizedPhone = normalizePhone(tempData.phone);
       const response = await api.post('/auth/signup', {
         name: profileSetupData.name,
-        phone: tempData.phone,
+        phone: normalizedPhone,
         password: tempData.password,
         twoWheelers,
         fourWheelers,
