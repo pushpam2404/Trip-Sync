@@ -1,7 +1,11 @@
 
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://tripsync-backend-true.onrender.com/api';
+let API_URL = import.meta.env.VITE_API_URL || 'https://tripsync-backend-true.onrender.com/api';
+// Automatically append /api if the user forgot it in their environment variables
+if (API_URL && !API_URL.endsWith('/api')) {
+    API_URL = `${API_URL.replace(/\/$/, '')}/api`;
+}
 
 const api = axios.create({
     baseURL: API_URL,
