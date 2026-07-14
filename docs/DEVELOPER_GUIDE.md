@@ -32,7 +32,8 @@ Create `.env` configuration files inside their respective folders.
 
 ### Client Variables (`client/.env`)
 * **`VITE_API_URL`:** Backend API base URL (Default: `http://localhost:3001/api`).
-* **`VITE_GOOGLE_MAPS_API_KEY` (Required):** API key with Maps JS, Places, and Directions APIs active.
+* **`VITE_MAPPLS_MAP_SDK_KEY` (Required):** Your MapmyIndia Mappls SDK Access Token.
+* **`VITE_MAPPLS_REST_API_KEY` (Required):** Your MapmyIndia REST API Access Token.
 * **`GEMINI_API_KEY` (Required):** API key generated via Google AI Studio for conversational chatbot features.
 
 ### Server Variables (`server/.env`)

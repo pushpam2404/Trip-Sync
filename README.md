@@ -22,7 +22,7 @@ TripSync uses a decoupled client-server model designed for performance and secur
 ### High-Level Components
 * **Frontend Client:** React SPA bootstrapped with Vite, compiling Tailwind CSS locally for small, tree-shaken assets. Exposes domain-specific contexts to prevent parent re-renders.
 * **Backend Server:** Node/Express API server running Mongoose schemas on MongoDB. Protected routes are secured by rate limiters, CORS filters, and authentication checkers.
-* **Google Maps Adapter:** Geocodes addresses, renders custom routing overlays, and calculates real-time ETA metrics.
+* **Mappls Map Adapter:** Geocodes addresses, renders custom routing overlays, and calculates real-time ETA metrics.
 * **Sakha AI Co-pilot:** Interfaces with the Google Gen AI SDK to process chat conversations and resolve route navigation cards.
 
 ---
@@ -34,13 +34,13 @@ TripSync uses a decoupled client-server model designed for performance and secur
 | **Frontend Client** | React 19, TypeScript, Vite, Tailwind CSS (v4), React Router Dom (v7) |
 | **Backend Server** | Node.js, Express, TypeScript, Helmet, Rate Limiter |
 | **Database** | MongoDB, Mongoose ODM |
-| **APIs / SDKs** | Google Maps Platform, Google Gen AI SDK (Gemini 2.5 Flash) |
+| **APIs / SDKs** | MapmyIndia Mappls SDK & REST APIs, Google Gen AI SDK (Gemini 2.5 Flash) |
 
 ---
 
 ## 4. Environment Variables
 
-Create `.env` files in both folders. See `docs/ENVIRONMENT_SETUP.md` for detail.
+Create `.env` files in both folders. See `docs/DEVELOPER_GUIDE.md` for detail.
 
 ### Server Config (`server/.env`)
 ```env
