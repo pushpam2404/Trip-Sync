@@ -44,13 +44,7 @@ app.use(cors({
         }
         
         const cleanOrigin = origin.replace(/\/$/, "");
-        const isAllowed = allowedOrigins.some(allowed => {
-            const cleanAllowed = allowed.replace(/\/$/, "");
-            // Match exact, or match if user forgot to add https:// or http:// in the env variable
-            return cleanAllowed === cleanOrigin || 
-                   cleanOrigin === `https://${cleanAllowed}` || 
-                   cleanOrigin === `http://${cleanAllowed}`;
-        });
+        const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin);
         
         if (isAllowed) {
             callback(null, true);
