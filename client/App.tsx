@@ -44,17 +44,9 @@ const AppContent = () => {
             <Route path="/login" element={<LoginScreen />} />
             <Route path="/signup" element={<SignUpScreen />} />
 
-            {/* Profile Setup - Auth protected */}
-            <Route path="/profile/setup-1" element={
-                <ProtectedRoute>
-                    <ProfileSetup1Screen />
-                </ProtectedRoute>
-            } />
-            <Route path="/profile/setup-2" element={
-                <ProtectedRoute>
-                    <ProfileSetup2Screen />
-                </ProtectedRoute>
-            } />
+            {/* Profile Setup - Public (during signup flow) */}
+            <Route path="/profile/setup-1" element={<ProfileSetup1Screen />} />
+            <Route path="/profile/setup-2" element={<ProfileSetup2Screen />} />
 
             {/* Authenticated Dashboard / Workflows */}
             <Route path="/" element={
