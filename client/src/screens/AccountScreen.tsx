@@ -43,11 +43,11 @@ export const AccountScreen = () => {
     };
 
     return (
-        <div className="h-screen text-slate-100 flex flex-col bg-slate-950 relative overflow-hidden">
+        <div className="h-screen text-text flex flex-col bg-background relative overflow-hidden">
             {/* Ambient background glow */}
             <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
-            <header className="flex items-center p-4 border-b border-slate-900 flex-shrink-0 bg-slate-900/60 backdrop-blur-md sticky top-0 z-20">
+            <header className="flex items-center p-4 border-b border-border-default flex-shrink-0 bg-surface/60 backdrop-blur-md sticky top-0 z-20">
                 <button 
                     onClick={() => navigate('/')} 
                     className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer" 
@@ -58,7 +58,7 @@ export const AccountScreen = () => {
                 <h1 className="text-base font-bold ml-4 text-white">Account Settings</h1>
             </header>
 
-            <div className="flex-grow overflow-y-auto p-6 max-w-sm w-full mx-auto space-y-8 animate-fade-in relative z-10">
+            <div className="flex-grow overflow-y-auto p-6 max-w-sm md:max-w-4xl w-full mx-auto space-y-8 animate-fade-in relative z-10">
                 {/* Profile Details */}
                 <div className="card bg-slate-900 border border-slate-800 space-y-4">
                     <div>
@@ -185,7 +185,7 @@ export const AccountScreen = () => {
                 </div>
             </div>
 
-            <div className="flex-shrink-0 p-4 border-t border-slate-900 flex gap-4 bg-slate-900/60 backdrop-blur-md sticky bottom-0 z-20 safe-bottom">
+            <div className="flex-shrink-0 p-4 border-t border-border-default flex gap-4 bg-surface/60 backdrop-blur-md sticky bottom-0 z-20 safe-bottom">
                 <button
                     onClick={handleLogout}
                     className="flex-1 btn btn-danger cursor-pointer"

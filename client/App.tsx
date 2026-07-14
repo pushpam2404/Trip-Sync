@@ -86,7 +86,7 @@ const App = () => {
     return (
         <BrowserRouter>
             <AppProvider>
-                <div className="relative min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden selection:bg-cyan-500/30">
+                <div className="relative min-h-screen bg-background text-text overflow-x-hidden selection:bg-cyan-500/30">
                     <AppContent />
                 </div>
             </AppProvider>

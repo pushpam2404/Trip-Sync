@@ -57,11 +57,11 @@ export const HomeScreen = () => {
     };
 
     return (
-        <div className="p-6 min-h-screen flex flex-col justify-between bg-slate-950 relative overflow-hidden">
+        <div className="p-6 min-h-screen flex flex-col justify-between bg-background text-text relative overflow-hidden">
             {/* Background Ambient Lights */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
-            <div className="flex-grow space-y-8 max-w-sm w-full mx-auto animate-fade-in">
+            <div className="flex-grow space-y-8 max-w-sm md:max-w-4xl w-full mx-auto animate-fade-in">
                 {/* Header */}
                 <header className="flex justify-between items-center py-2 relative z-10">
                     <div className="flex items-center space-x-3">
@@ -92,7 +92,7 @@ export const HomeScreen = () => {
                 {/* Features Grid */}
                 <section className="space-y-3">
                     <h2 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Features</h2>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <FeatureCard
                             iconComponent={SakhaIcon}
                             title="Sakha Assistant"

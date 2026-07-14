@@ -15,7 +15,7 @@ export const DestinationsScreen = () => {
         return (
             <>
                 <TabScreenHeader title="Saved Places" />
-                <div className="p-6 text-slate-100 text-center mt-12 max-w-sm w-full mx-auto animate-fade-in">
+                <div className="p-6 text-text text-center mt-12 max-w-sm md:max-w-4xl w-full mx-auto animate-fade-in">
                     <div className="w-16 h-16 mx-auto bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center mb-4 shadow-inner">
                         <PlacesIcon isActive={false} className="w-6 h-6 text-slate-500" />
                     </div>
@@ -29,9 +29,9 @@ export const DestinationsScreen = () => {
     return (
         <>
             <TabScreenHeader title="Saved Places" />
-            <div className="p-6 text-slate-100 max-w-sm w-full mx-auto space-y-4 animate-fade-in">
+            <div className="p-6 text-text max-w-sm md:max-w-4xl w-full mx-auto space-y-4 animate-fade-in">
                 <p className="text-xs text-slate-500 leading-relaxed">Your saved trip itineraries and attraction hops.</p>
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {savedRoutes.map(route => (
                         <div key={route.id} className="card bg-slate-900 border border-slate-800 p-5 shadow-sm space-y-4">
                             <div className="flex justify-between items-start">

@@ -1,6 +1,11 @@
 # TripSync — Smart Travel Companion
 
+> [!WARNING]
+> **Deployment Status: Active Development**
+> This application is currently under development and is buggy, but the core features are functional. You can test the live application here: [https://trip-sync-rho.vercel.app](https://trip-sync-rho.vercel.app)
+
 TripSync is a production-grade, AI-powered travel companion web application built for Indian road travelers. By combining real-time navigation, custom transit profiles, dynamic waypoints, and a conversational AI co-pilot, TripSync simplifies road trip planning and driving logistics into a single dashboard.
+
 
 ---
 

@@ -1,8 +1,8 @@
-import React, { type ReactNode } from 'react';
-import { AuthProvider, useAuth } from './AuthContext';
-import { TripProvider, useTrips } from './TripContext';
-import { NavigationProvider, useNavigation } from './NavigationContext';
-import { UIProvider, useUI } from './UIContext';
+import React, { type ReactNode } from "react";
+import { AuthProvider, useAuth } from "./AuthContext";
+import { TripProvider, useTrips } from "./TripContext";
+import { NavigationProvider, useNavigation } from "./NavigationContext";
+import { UIProvider, useUI } from "./UIContext";
 
 /**
  * AppProvider — A composition wrapper that nests all domain-specific providers.
@@ -13,9 +13,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AuthProvider>
       <TripProvider>
         <NavigationProvider>
-          <UIProvider>
-            {children}
-          </UIProvider>
+          <UIProvider>{children}</UIProvider>
         </NavigationProvider>
       </TripProvider>
     </AuthProvider>
@@ -45,7 +43,6 @@ export function useAppContext() {
     profileSetupData: auth.profileSetupData,
     startProfileSetup: auth.startProfileSetup,
     completeProfileSetup: auth.completeProfileSetup,
-    skipProfileSetup: auth.skipProfileSetup,
 
     // Trips & Planner State
     trips: trips.trips,

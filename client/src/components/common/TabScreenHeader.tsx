@@ -33,7 +33,7 @@ const TabScreenHeader = ({ title }: { title: string }) => (
 // I will stick to the simpler centered title version for the tabs, as seen in the recent inline definitions.
 
 export const TabScreenHeader = ({ title }: { title: string }) => (
-    <div className="bg-white dark:bg-slate-700 p-4 shadow-sm flex items-center justify-center sticky top-0 z-10 border-b border-gray-200 dark:border-gray-700">
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h1>
+    <div className="bg-surface-raised border-b border-border-default p-4 shadow-sm flex items-center justify-center sticky top-0 z-10">
+        <h1 className="text-lg font-bold text-text">{title}</h1>
     </div>
 );

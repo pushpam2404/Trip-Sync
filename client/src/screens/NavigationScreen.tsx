@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
 import { TripDetails } from '../types';
 import { RecenterIcon } from '../constants';
@@ -7,8 +8,12 @@ import { GeolocationPermissionError } from '../components/common/PermissionError
 import { AddStopModal } from '../components/map/AddStopModal';
 import { StopsListModal } from '../components/map/StopsListModal';
 import { getDirections, calculateDistance, searchNearbyPlaces, reverseGeocode, getPlaceDetails } from '../services/mapService';
+import { useMapplsLoader } from '../hooks/useMapplsLoader';
 
 export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: TripDetails, onCheckOut?: () => void }) => {
+    const navigate = useNavigate();
+    const { isLoaded, loadError } = useMapplsLoader();
+
     const { 
         theme,
         navigationOrigin,
@@ -29,6 +34,13 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
 
     const resolvedOnCheckOut = onCheckOut || endNavigation;
 
+    // Redirect to home if navigation details are missing
+    useEffect(() => {
+        if (!resolvedTripDetails.from || !resolvedTripDetails.to) {
+            navigate('/');
+        }
+    }, [resolvedTripDetails.from, resolvedTripDetails.to, navigate]);
+
     const [showAddStopModal, setShowAddStopModal] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<any>(null);
@@ -40,6 +52,7 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
 
     const [mapError, setMapError] = useState<{ type: 'permission' | 'network' | 'generic'; message: string } | null>(null);
     const [directions, setDirections] = useState<any>(null);
+    const [retryTrigger, setRetryTrigger] = useState(0);
 
     // Navigation State
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -66,7 +79,7 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
         // Initialize Map
         const centerCoords = userLocation || { lat: 19.0760, lng: 72.8777 }; // Default to Mumbai
         const map = new (window as any).mappls.Map(mapContainerRef.current, {
-            center: [centerCoords.lat, centerCoords.lng],
+            center: { lat: centerCoords.lat, lng: centerCoords.lng },
             zoom: 15,
             zoomControl: false,
             hybrid: false
@@ -90,7 +103,7 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
     // Recenter Map Function
     const recenterMap = useCallback(() => {
         if (mapRef.current && userLocation) {
-            mapRef.current.setCenter([userLocation.lat, userLocation.lng]);
+            mapRef.current.setCenter({ lat: userLocation.lat, lng: userLocation.lng });
             mapRef.current.setZoom(17);
             setIsAutoCentering(true);
         }
@@ -110,12 +123,12 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
         const leg = route.legs[0];
         
         // Map Google-adapted coordinates back to Mappls paths
-        const paths = leg.steps.map((step: any) => [step.end_location.lat(), step.end_location.lng()]);
+        const paths = leg.steps.map((step: any) => ({ lat: step.end_location.lat(), lng: step.end_location.lng() }));
         
         // Draw Route Polyline
         routePolylineRef.current = new (window as any).mappls.Polyline({
             map: mapRef.current,
-            paths: paths,
+            path: paths,
             strokeColor: '#06b6d4',
             strokeWeight: 6,
             strokeOpacity: 0.95
@@ -141,17 +154,17 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
         if (!mapRef.current || !userLocation) return;
 
         if (userMarkerRef.current) {
-            userMarkerRef.current.setPosition([userLocation.lat, userLocation.lng]);
+            userMarkerRef.current.setPosition({ lat: userLocation.lat, lng: userLocation.lng });
         } else {
             userMarkerRef.current = new (window as any).mappls.Marker({
                 map: mapRef.current,
-                position: [userLocation.lat, userLocation.lng],
+                position: { lat: userLocation.lat, lng: userLocation.lng },
                 icon_url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
             });
         }
 
         if (isAutoCentering) {
-            mapRef.current.setCenter([userLocation.lat, userLocation.lng]);
+            mapRef.current.setCenter({ lat: userLocation.lat, lng: userLocation.lng });
         }
     }, [userLocation, isAutoCentering]);
 
@@ -284,10 +297,38 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
         return () => {
             if (locationWatcherId.current !== null) navigator.geolocation.clearWatch(locationWatcherId.current);
         };
-    }, [directions, currentStepIndex]);
+    }, [directions, currentStepIndex, retryTrigger]);
+
+    const handleRetryLocation = () => {
+        setMapError(null);
+        setRetryTrigger(prev => prev + 1);
+    };
+
+    if (!resolvedTripDetails.from || !resolvedTripDetails.to) {
+        return null;
+    }
+
+    if (loadError) {
+        return (
+            <div className="h-screen w-screen flex flex-col items-center justify-center bg-background text-text p-6 text-center space-y-4">
+                <p className="text-red-400 text-lg font-bold">Map Engine Failed to Load</p>
+                <p className="text-slate-400 text-sm max-w-sm">{loadError.message}</p>
+                <button onClick={() => window.location.reload()} className="btn btn-primary text-xs">Reload App</button>
+            </div>
+        );
+    }
+
+    if (!isLoaded) {
+        return (
+            <div className="h-screen w-screen flex flex-col items-center justify-center bg-background text-text space-y-4">
+                <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin"></div>
+                <p className="text-sm text-slate-400 font-medium">Initializing Map Engine...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="text-gray-900 dark:text-white h-full flex flex-col relative">
+        <div className="h-screen w-screen flex flex-col relative bg-background text-text">
             {showAddStopModal && <AddStopModal onClose={() => setShowAddStopModal(false)} onCategorySelect={handleAddStopCategory} onPlaceSelect={handlePlaceSelect} />}
             {isStopsListVisible && (
                 <StopsListModal
@@ -296,6 +337,14 @@ export const NavigationScreen = ({ tripDetails, onCheckOut }: { tripDetails?: Tr
                     onSelect={handleSelectStop}
                     onClose={() => setIsStopsListVisible(false)}
                     isLoading={isCalculatingStops}
+                />
+            )}
+
+            {mapError && mapError.type === 'permission' && (
+                <GeolocationPermissionError
+                    message={mapError.message}
+                    onRetry={handleRetryLocation}
+                    onCancel={resolvedOnCheckOut}
                 />
             )}
 
