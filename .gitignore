@@ -1,27 +1,48 @@
 # Dependencies
-node_modules
+node_modules/
+**/node_modules/
 .pnp
 .pnp.js
 
 # Testing
-coverage
+coverage/
 
 # Production
-build
-dist
+build/
+dist/
+**/dist/
 
-# Misc
-.DS_Store
+# Configuration and Local Files
 .env
+**/.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# IDEs & System Files
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Agent Customizations & Temporary Files
+.agents/
+design-system/
+docs/scratchpad*
+**/scratch/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+logs/
+*.log
 
 # Vercel
-.vercel
+.vercel/
