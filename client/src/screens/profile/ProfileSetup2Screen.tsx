@@ -9,6 +9,7 @@ export const ProfileSetup2Screen = () => {
 
     const [twoWheelers, setTwoWheelers] = useState<string[]>([]);
     const [fourWheelers, setFourWheelers] = useState<string[]>([]);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         if (profileSetupData) {
@@ -19,8 +20,21 @@ export const ProfileSetup2Screen = () => {
         }
     }, [profileSetupData, navigate]);
 
-    const handleComplete = () => {
-        completeProfileSetup({ twoWheelers, fourWheelers });
+    const handleComplete = async () => {
+        setError('');
+        const result = await completeProfileSetup({ twoWheelers, fourWheelers });
+        if (result && !result.success && result.message) {
+            setError(result.message);
+        }
+    };
+
+    const handleSkip = async () => {
+        setError('');
+        // Complete with no vehicles
+        const result = await completeProfileSetup({ twoWheelers: [], fourWheelers: [] });
+        if (result && !result.success && result.message) {
+            setError(result.message);
+        }
     };
 
     const canComplete = useMemo(() => {
@@ -91,6 +105,12 @@ export const ProfileSetup2Screen = () => {
                     </p>
                 </div>
 
+                {error && (
+                    <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-lg p-3.5 mb-6 text-center leading-relaxed font-medium">
+                        {error}
+                    </div>
+                )}
+
                 <div className="space-y-6 overflow-y-auto max-h-[40vh] pr-1.5 scrollbar-thin">
                     {renderVehicleInputs(profileSetupData.numTwoWheelers, '2-Wheeler', twoWheelers, setTwoWheelers)}
                     {renderVehicleInputs(profileSetupData.numFourWheelers, '4-Wheeler', fourWheelers, setFourWheelers)}
@@ -106,7 +126,7 @@ export const ProfileSetup2Screen = () => {
                     </button>
                     {!hasVehicles && (
                         <button
-                            onClick={skipProfileSetup}
+                            onClick={handleSkip}
                             className="btn btn-ghost btn-full font-semibold text-xs"
                         >
                             Skip for now

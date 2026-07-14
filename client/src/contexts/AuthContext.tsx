@@ -21,7 +21,7 @@ interface AuthContextValue extends AuthState {
   updateVehicle: (params: { type: 'twoWheelers' | 'fourWheelers'; vehicle: Vehicle }) => void;
   profileSetupData: ProfileSetupData | null;
   startProfileSetup: (data: ProfileSetupData) => void;
-  completeProfileSetup: (data: VehicleRegistrationData) => void;
+  completeProfileSetup: (data: VehicleRegistrationData) => Promise<{ success: boolean; message?: string }>;
   skipProfileSetup: () => void;
 }
 
@@ -150,8 +150,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       navigate('/');
+      return { success: true };
     } catch (error: any) {
       console.error('Profile setup failed:', error);
+      const message = error.response?.data?.message || 'Failed to complete profile setup. Please try again.';
+      return { success: false, message };
     } finally {
       setIsLoading(false);
     }
