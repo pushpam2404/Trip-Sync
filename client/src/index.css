@@ -1,0 +1,265 @@
+@import "tailwindcss";
+
+/*
+ * ============================================================
+ *  TripSync Sleek Startup Design System
+ *  Inspired by Linear, Apple, Notion, and Airbnb
+ *  Theme: Slate Neutrals + Cyan/Teal Accents + Emerald Highlights
+ * ============================================================
+ */
+
+@theme {
+  /* ─── Color Primitives ─── */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  --color-cyan-50: #ecfeff;
+  --color-cyan-100: #cffafe;
+  --color-cyan-200: #a5f3fc;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-600: #0891b2;
+  --color-cyan-700: #0e7490;
+
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+
+  --color-amber-500: #f59e0b;
+
+  --color-rose-500: #f43f5e;
+  --color-rose-600: #e11d48;
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* ─── Semantic Tokens ─── */
+  --color-primary: var(--color-cyan-500);
+  --color-primary-hover: var(--color-cyan-400);
+  
+  --color-background: var(--color-slate-950);
+  --color-surface: var(--color-slate-900);
+  --color-surface-raised: var(--color-slate-800);
+  
+  --color-text: var(--color-slate-50);
+  --color-text-secondary: var(--color-slate-400);
+  --color-text-muted: var(--color-slate-500);
+  
+  --color-border-default: var(--color-slate-800);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+
+  /* ─── Radius ─── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* ─── Shadows ─── */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 15px rgba(6, 182, 212, 0.08);
+
+  /* ─── Transitions ─── */
+  --transition-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-base: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Base Styles & Clean Typography ─── */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: 'Inter', -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Clean up input autofocus outlines */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+}
+
+/* ─── Reusable Component Classes (Consistency First) ─── */
+
+/* Premium Slate Card */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+.card-hover:hover {
+  border-color: var(--color-slate-700);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  cursor: pointer;
+}
+
+.card-interactive:active {
+  transform: scale(0.985);
+}
+
+/* Input Fields (Sleek Border outlines) */
+.input {
+  width: 100%;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  transition: all var(--transition-base);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.12), inset 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Premium Minimal Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-size: var(--text-sm);
+  line-height: 1.25;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-black);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-secondary {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border-color: var(--color-border-default);
+}
+
+.btn-secondary:hover {
+  background: var(--color-slate-700);
+  border-color: var(--color-slate-600);
+}
+
+.btn-danger {
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--color-rose-500);
+  border-color: rgba(244, 63, 94, 0.2);
+}
+
+.btn-danger:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-slate-800);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-slate-700);
+}
+
+/* Custom Overlays & Modals */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 26rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Light Mode Overrides */
+.light {
+  --color-background: var(--color-slate-50);
+  --color-surface: var(--color-white);
+  --color-surface-raised: var(--color-slate-100);
+  --color-text: var(--color-slate-900);
+  --color-text-secondary: var(--color-slate-600);
+  --color-text-muted: var(--color-slate-400);
+  --color-border-default: var(--color-slate-200);
+  --color-border-subtle: rgba(0, 0, 0, 0.03);
+}

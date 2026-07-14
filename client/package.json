@@ -9,17 +9,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.11.0",
     "@mapbox/polyline": "^1.2.1",
-    "@react-google-maps/api": "^2.20.8",
     "axios": "^1.13.2",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
     "@types/node": "^22.19.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.3.2",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

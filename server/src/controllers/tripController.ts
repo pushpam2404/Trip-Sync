@@ -1,9 +1,6 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Trip from '../models/Trip';
-
-interface AuthRequest extends Request {
-    user?: any;
-}
+import { AuthRequest } from '../types';
 
 // @desc    Create a new trip
 // @route   POST /api/trips

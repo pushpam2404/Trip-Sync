@@ -1,9 +1,6 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import SavedRoute from '../models/SavedRoute';
-
-interface AuthRequest extends Request {
-    user?: any;
-}
+import { AuthRequest } from '../types';
 
 // @desc    Save a route
 // @route   POST /api/saved-routes

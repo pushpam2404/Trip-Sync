@@ -1,184 +1,113 @@
-# 🗺️ Trip Sync
+# TripSync — Smart Travel Companion
 
-**Trip Sync** is your intelligent travel companion, designed to simplify trip planning and enhance your on-road experience. By combining AI-driven advice with robust real-time navigation, Trip Sync ensures every journey is smooth, memorable, and hassle-free.
-
----
-
-## � Overview
-
-Trip Sync solves the common chaos of travel planning by integrating three core pillars into one seamless application:
-1.  **AI Assistance ("Sakha")**: A conversational AI that acts as your personal travel guide.
-2.  **Visual Trip Planning**: A dedicated planner to discover hotels, resorts, and attractions before you even start the car.
-3.  **Real-Time Navigation**: Turn-by-turn navigation that allows you to add stops (like petrol pumps or restaurants) dynamically along your route.
-
-Whether you are planning a weekend getaway or a long road trip, Trip Sync keeps your itinerary synchronized and accessible.
+TripSync is a production-grade, AI-powered travel companion web application built for Indian road travelers. By combining real-time navigation, custom transit profiles, dynamic waypoints, and a conversational AI co-pilot, TripSync simplifies road trip planning and driving logistics into a single dashboard.
 
 ---
 
-## 🌟 Key Features
+## 1. Product Overview
 
-### 🤖 AI Travel Assistant (Sakha)
--   **Chat Interface**: Ask for personalized recommendations, travel tips, or local secrets.
--   **Context Aware**: Understands your destination and provides relevant advice.
-
-### 📍 Smart Navigation
--   **Turn-by-Turn Directions**: Powered by Google Maps Platform for accurate routing.
--   **Dynamic Routing**: Real-time updates based on traffic and road conditions.
--   **Live Location**: Tracks your current position to guide you effectively.
-
-### 🏨 Trip Planner
--   **Stays & Accommodation**: Search for top-rated hotels and resorts near your destination.
--   **Tourist Attractions**: Discover must-visit spots with photos and ratings.
--   **Visual Itinerary**: Organize your trip step-by-step.
-
-### ⛽ Add Stops Feature
--   **Nearby Amenities**: Quickly find and add essentials like **Petrol Pumps**, **Restaurants**, **Rest Stops**, and **Cafes** to your active route.
--   **Search Along Route**: Search for specific brands (e.g., "McDonald's" or "Shell") and add them as waypoints without losing your final destination.
-
-### 🔐 User Personalization
--   **Secure Accounts**: Sign up/Login to sync your data across devices.
--   **Trip History**: Save and review your past journeys.
--   **Saved Places**: Bookmark your favorite destinations.
+TripSync transforms travel planning by serving as a central hub for road trips. It enables travelers to:
+* **Plan Journeys:** Discover accommodations and popular local landmarks step-by-step.
+* **Navigate Smarter:** View turn-by-turn routes optimized for 2-wheelers or 4-wheelers.
+* **Leverage Conversational AI ("Sakha"):** Converse with a travel co-pilot powered by Gemini AI to plan itineraries, find pit stops, and trigger maps with a single tap.
+* **Dynamic Waypoints:** Find restaurants, gas stations, ATMs, and EV chargers, adding them dynamically to active routes.
+* **Fleet Logging:** Track and store historical trip details mapped to passenger metrics and vehicle registration numbers.
 
 ---
 
-## 🛠️ Tech Stack
+## 2. System Architecture
 
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Frontend** | React, Vite, TS | Fast, modern web application built with TypeScript. |
-| **Maps** | Google Maps Platform | `@react-google-maps/api` for rendering maps and routing. |
-| **Backend** | Node.js, Express.js | Scalable RESTful API architecture. |
-| **Database** | MongoDB + Mongoose | Flexible document storage for trips and user data. |
-| **Authentication** | JWT, Bcrypt | Secure, stateless authentication. |
-| **Styling** | Tailwind CSS | Utility-first CSS framework for rapid UI development. |
+TripSync uses a decoupled client-server model designed for performance and security.
+
+### High-Level Components
+* **Frontend Client:** React SPA bootstrapped with Vite, compiling Tailwind CSS locally for small, tree-shaken assets. Exposes domain-specific contexts to prevent parent re-renders.
+* **Backend Server:** Node/Express API server running Mongoose schemas on MongoDB. Protected routes are secured by rate limiters, CORS filters, and authentication checkers.
+* **Google Maps Adapter:** Geocodes addresses, renders custom routing overlays, and calculates real-time ETA metrics.
+* **Sakha AI Co-pilot:** Interfaces with the Google Gen AI SDK to process chat conversations and resolve route navigation cards.
 
 ---
 
-## 📂 Project Structure
+## 3. Tech Stack
 
+| Layer | Technologies |
+|-------|--------------|
+| **Frontend Client** | React 19, TypeScript, Vite, Tailwind CSS (v4), React Router Dom (v7) |
+| **Backend Server** | Node.js, Express, TypeScript, Helmet, Rate Limiter |
+| **Database** | MongoDB, Mongoose ODM |
+| **APIs / SDKs** | Google Maps Platform, Google Gen AI SDK (Gemini 2.5 Flash) |
+
+---
+
+## 4. Environment Variables
+
+Create `.env` files in both folders. See `docs/ENVIRONMENT_SETUP.md` for detail.
+
+### Server Config (`server/.env`)
+```env
+PORT=3001
+MONGO_URI=mongodb://localhost:27017/tripsync
+JWT_SECRET=your_jwt_signing_secret_key
+ALLOWED_ORIGINS=http://localhost:5173
+```
+
+### Client Config (`client/.env`)
+```env
+VITE_API_URL=http://localhost:3001/api
+VITE_MAPPLS_MAP_SDK_KEY=your_mappls_map_sdk_key
+VITE_MAPPLS_REST_API_KEY=your_mappls_rest_api_key
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+---
+
+## 5. Running the Application Locally
+
+### Running the Server
 ```bash
+cd server
+npm install
+npm run dev
+```
+
+### Running the Client
+```bash
+cd client
+npm install
+npm run dev
+```
+*Open `http://localhost:5173` to launch the application.*
+
+---
+
+## 6. Project Directory Layout
+
+```
 Trip_Sync/
-├── client/                 # Frontend Application
+├── client/                     # React Frontend
 │   ├── src/
-│   │   ├── components/     # Reusable UI components (Maps, Modals, etc.)
-│   │   ├── contexts/       # React Context (Auth, App State)
-│   │   ├── screens/        # Page views (Navigation, Planner, Sakha)
-│   │   ├── services/       # API calls (MapService, BackendService)
-│   │   └── utils/          # Helper functions
-│   ├── package.json        # Frontend dependencies
-│   └── vite.config.ts      # Vite configuration
-├── server/                 # Backend API
-│   ├── src/
-│   │   ├── config/         # Database connection logic
-│   │   ├── controllers/    # Request handlers (Auth, Trips)
-│   │   ├── middleware/     # Auth protection middleware
-│   │   ├── models/         # Mongoose User/Trip models
-│   │   └── routes/         # API Endpoint definitions
-│   ├── package.json        # Backend dependencies
-│   └── tsconfig.json       # TypeScript configuration
-└── README.md               # Project documentation
+│   │   ├── components/         # Modals, icons, panels
+│   │   ├── contexts/           # State providers
+│   │   ├── services/           # Maps and AI API wrappers
+│   │   └── screens/            # Application Screens
+│   └── index.html              # Mount entry
+└── server/                     # Node/Express API
+    ├── src/
+    │   ├── config/             # DB Connection
+    │   ├── controllers/        # Request handlers
+    │   ├── middleware/         # Security & validation checkers
+    │   └── models/             # Schema definitions
 ```
 
 ---
 
-## 🚀 Local Development Setup
-
-Follow these steps to run the project locally on your machine.
-
-### Prerequisites
-1.  **Node.js** (v18 or higher recommended)
-2.  **MongoDB** (Local instance or MongoDB Atlas Connection URI)
-3.  **Google Maps API Key** (Enabled APIs: Maps JavaScript, Places, Directions, Geocoding)
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Pushpam-2404/Trip_Sync.git
-cd Trip_Sync
-```
-
-### 2. Backend Setup
-1.  Navigate to the server directory:
-    ```bash
-    cd server
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Create a `.env` file in the `server` directory:
-    ```env
-    PORT=3000
-    MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/tripsync
-    JWT_SECRET=your_super_secret_jwt_key
-    ```
-4.  Start the server:
-    ```bash
-    npm run dev
-    ```
-    *(Runs on http://localhost:3000)*
-
-### 3. Frontend Setup
-1.  Navigate to the client directory:
-    ```bash
-    cd ../client
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Create a `.env` file in the `client` directory:
-    ```env
-    VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-    VITE_SERVER_URL=http://localhost:3000
-    ```
-4.  Start the application:
-    ```bash
-    npm run dev
-    ```
-    *(Runs on http://localhost:5173)*
+## 7. AI Features (Sakha Co-pilot)
+* **AI Chat Assistant:** Powering interactions using Gemini 2.5 Flash.
+* **Structured Intent Detection:** Converts verbal requests (e.g., "Take me from Mumbai to Pune") into interactive floating route cards.
+* **Voice Search Integrations:** Translates spoken details directly into query fields.
 
 ---
 
-## � API Overview
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| **POST** | `/api/auth/signup` | Register a new user account. |
-| **POST** | `/api/auth/login` | Authenticate existing user and receive JWT. |
-| **GET** | `/api/trips` | Fetch all trips created by the logged-in user. |
-| **POST** | `/api/trips` | Save a new trip itinerary. |
-| **PUT** | `/api/trips/:id` | Update details of an existing trip. |
-| **GET** | `/api/saved-routes` | Retrieve favorite/saved routes. |
-| **POST** | `/api/saved-routes` | Bookmark a route for quick access. |
-
----
-
-## 🔑 Demo Credentials
-
-To quickly test the application, you can use these test credentials (or sign up as a new user):
-
--   **Email**: `demo@tripsync.com`
--   **Password**: `password123`
-
-*(Note: If running locally with a fresh database, please **Sign Up** first to create this user!)*
-
----
-
-## ☁️ Deployment Guide
-
-### Frontend (Vercel)
-1.  Push code to GitHub.
-2.  Import repository in **Vercel**.
-3.  Set **Root Directory** to `client`.
-4.  Add Environment Variable: `VITE_GOOGLE_MAPS_API_KEY`.
-
-### Backend (Render / Railway)
-1.  Create a new Web Service.
-2.  Connect GitHub repostory.
-3.  Set **Root Directory** to `server`.
-4.  Add Environment Variables: `MONGO_URI`, `JWT_SECRET`.
-
----
-
-*Built with ❤️ by Pushpam Raj Satyarthi*
+## 8. Roadmap & Future Scope
+* **PWA Offline Capabilities (v1.2):** Cache styles, icons, and maps data, syncing logs once the network connection is restored.
+* **Collaborative Boards (v2.0):** Shared rooms using WebSockets to plan trips and split expenses.
+* **Weather Alert Routing (v3.0):** Warn drivers of weather-related highway blocks, suggesting alternative detours.

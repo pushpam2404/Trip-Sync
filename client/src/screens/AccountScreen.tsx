@@ -1,33 +1,22 @@
-
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
-import { Screen, UserProfile, Vehicle } from '../types';
+import { UserProfile, Vehicle } from '../types';
 import { ArrowLeftIcon, CarIcon, TrashIcon, BikeIcon } from '../constants';
 
 export const AccountScreen = () => {
-    const { user, setUser, setScreen, theme, setTheme } = useAppContext();
+    const { user, setUser, theme, setTheme, handleLogout } = useAppContext();
+    const navigate = useNavigate();
+    
     const [draftUser, setDraftUser] = useState<UserProfile | null>(user ? JSON.parse(JSON.stringify(user)) : null);
     const [newVehicle, setNewVehicle] = useState({ type: 'fourWheelers', reg: '' });
 
     if (!draftUser) return null;
 
-    const handleLogout = () => {
-        // Clear all persisted data on logout for a clean slate
-        window.localStorage.removeItem('tripsync-user');
-        window.localStorage.removeItem('tripsync-screen');
-        window.localStorage.removeItem('tripsync-savedRoutes');
-        window.localStorage.removeItem('tripsync-trips');
-        window.localStorage.removeItem('tripsync-activeTab');
-        // We can keep theme and users db if we want
-
-        setUser(null);
-        setScreen(Screen.Login);
-    }
-
     const handleSaveChanges = () => {
         setUser(draftUser);
-        setScreen(Screen.Home);
-    }
+        navigate('/');
+    };
 
     const handleAddVehicle = (e: React.FormEvent) => {
         e.preventDefault();
@@ -37,11 +26,11 @@ export const AccountScreen = () => {
             setDraftUser(prev => prev ? { ...prev, [type]: [...prev[type], vehicle] } : null);
             setNewVehicle({ type: 'fourWheelers', reg: '' });
         }
-    }
+    };
 
     const handleRemoveVehicle = (type: 'twoWheelers' | 'fourWheelers', id: string) => {
         setDraftUser(prev => prev ? { ...prev, [type]: prev[type].filter(v => v.id !== id) } : null);
-    }
+    };
 
     const handleRegNumberChange = (type: 'twoWheelers' | 'fourWheelers', id: string, newRegNumber: string) => {
         setDraftUser(prev => {
@@ -51,103 +40,161 @@ export const AccountScreen = () => {
             );
             return { ...prev, [type]: updatedVehicles };
         });
-    }
+    };
 
     return (
-        <div className="h-screen text-gray-900 dark:text-white flex flex-col">
-            <header className="flex items-center p-4 border-b border-gray-200 dark:border-slate-700/50 flex-shrink-0 bg-white/80 dark:bg-slate-900/30 backdrop-blur-lg">
-                <button onClick={() => setScreen(Screen.Home)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700/50" aria-label="Go back to home">
-                    <ArrowLeftIcon className="h-6 w-6 text-gray-900 dark:text-white" />
+        <div className="h-screen text-slate-100 flex flex-col bg-slate-950 relative overflow-hidden">
+            {/* Ambient background glow */}
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"></div>
+
+            <header className="flex items-center p-4 border-b border-slate-900 flex-shrink-0 bg-slate-900/60 backdrop-blur-md sticky top-0 z-20">
+                <button 
+                    onClick={() => navigate('/')} 
+                    className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer" 
+                    aria-label="Go back to home"
+                >
+                    <ArrowLeftIcon className="h-4 w-4" />
                 </button>
-                <h1 className="text-2xl font-bold ml-4">Account Settings</h1>
+                <h1 className="text-base font-bold ml-4 text-white">Account Settings</h1>
             </header>
 
-            <div className="flex-grow overflow-y-auto p-6">
-                <div>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-300">Name</label>
-                    <input
-                        value={draftUser.name}
-                        onChange={e => setDraftUser({ ...draftUser, name: e.target.value })}
-                        className="mt-1 w-full text-2xl font-bold bg-gray-100 dark:bg-slate-700 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">Phone: {draftUser.phone}</p>
+            <div className="flex-grow overflow-y-auto p-6 max-w-sm w-full mx-auto space-y-8 animate-fade-in relative z-10">
+                {/* Profile Details */}
+                <div className="card bg-slate-900 border border-slate-800 space-y-4">
+                    <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Full Name</label>
+                        <input
+                            value={draftUser.name}
+                            onChange={e => setDraftUser({ ...draftUser, name: e.target.value })}
+                            className="input"
+                            placeholder="Full name"
+                        />
+                    </div>
+                    <div className="pt-2 border-t border-slate-800/60 flex justify-between items-center text-xs">
+                        <span className="text-slate-500 font-semibold uppercase tracking-wider">Registered Phone</span>
+                        <span className="text-slate-200 font-bold">{draftUser.phone}</span>
+                    </div>
                 </div>
 
-                <div className="mt-8">
-                    <h2 className="text-xl font-semibold">Appearance</h2>
-                    <div className="mt-2 bg-white dark:bg-slate-700 p-3 rounded-lg flex justify-between items-center shadow-sm">
-                        <span className="font-medium text-gray-800 dark:text-gray-200">Dark Mode</span>
-                        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className={`relative w-12 h-6 rounded-full flex items-center transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-500'}`}>
-                            <span className={`w-5 h-5 bg-white rounded-full transform transition-transform absolute ${theme === 'dark' ? 'translate-x-6' : 'translate-x-1'}`}></span>
+                {/* Appearance Settings */}
+                <div className="space-y-3">
+                    <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Appearance</h2>
+                    <div className="card bg-slate-900 border border-slate-800 p-4 flex justify-between items-center shadow-sm">
+                        <span className="text-sm font-semibold text-slate-200">Dark Theme</span>
+                        <button
+                            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                            className={`relative w-10 h-6 rounded-full flex items-center transition-colors cursor-pointer ${theme === 'dark' ? 'bg-cyan-500' : 'bg-slate-850 border border-slate-700'}`}
+                            role="switch"
+                            aria-checked={theme === 'dark'}
+                            aria-label="Toggle dark mode"
+                        >
+                            <span className={`w-4 h-4 bg-slate-950 rounded-full shadow transform transition-transform absolute ${theme === 'dark' ? 'translate-x-5' : 'translate-x-1'}`}></span>
                         </button>
                     </div>
                 </div>
 
-                <div className="mt-8">
-                    <h2 className="text-xl font-semibold">My Vehicles</h2>
+                {/* Registered Vehicles */}
+                <div className="space-y-6">
+                    <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">My Registered Vehicles</h2>
 
-                    <h3 className="mt-4 text-lg font-medium text-gray-700 dark:text-gray-300">Four-wheelers ({draftUser.fourWheelers.length})</h3>
-                    <ul className="mt-2 space-y-2">
-                        {draftUser.fourWheelers.map(v => (
-                            <li key={v.id} className="flex justify-between items-center bg-white dark:bg-slate-700 p-3 rounded-lg shadow-sm">
-                                <div className="flex items-center flex-grow mr-2">
-                                    <CarIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-300 flex-shrink-0" />
-                                    <input
-                                        type="text"
-                                        placeholder="Add Reg. No."
-                                        value={v.regNumber}
-                                        onChange={(e) => handleRegNumberChange('fourWheelers', v.id, e.target.value)}
-                                        className="font-semibold text-gray-800 dark:text-gray-200 bg-transparent focus:outline-none placeholder-gray-400 dark:placeholder-gray-500 w-full"
-                                    />
-                                </div>
-                                <button onClick={() => handleRemoveVehicle('fourWheelers', v.id)}><TrashIcon /></button>
-                            </li>
-                        ))}
-                    </ul>
+                    {/* 4W List */}
+                    <div className="space-y-3">
+                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Four-wheelers ({draftUser.fourWheelers.length})</h3>
+                        {draftUser.fourWheelers.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic">No four-wheelers registered</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {draftUser.fourWheelers.map(v => (
+                                    <div key={v.id} className="flex justify-between items-center bg-slate-900 border border-slate-850 p-3 rounded-lg hover:border-slate-700 transition-colors">
+                                        <div className="flex items-center flex-grow mr-2">
+                                            <CarIcon className="w-4 h-4 mr-3 text-cyan-400 flex-shrink-0" />
+                                            <input
+                                                type="text"
+                                                placeholder="Add Reg. No."
+                                                value={v.regNumber}
+                                                onChange={(e) => handleRegNumberChange('fourWheelers', v.id, e.target.value)}
+                                                className="font-bold text-white bg-transparent focus:outline-none placeholder-slate-700 w-full text-xs uppercase"
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => handleRemoveVehicle('fourWheelers', v.id)} 
+                                            className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                            aria-label="Remove vehicle"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
-                    <h3 className="mt-6 text-lg font-medium text-gray-700 dark:text-gray-300">Two-wheelers ({draftUser.twoWheelers.length})</h3>
-                    <ul className="mt-2 space-y-2">
-                        {draftUser.twoWheelers.map(v => (
-                            <li key={v.id} className="flex justify-between items-center bg-white dark:bg-slate-700 p-3 rounded-lg shadow-sm">
-                                <div className="flex items-center flex-grow mr-2">
-                                    <BikeIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-300 flex-shrink-0" />
-                                    <input
-                                        type="text"
-                                        placeholder="Add Reg. No."
-                                        value={v.regNumber}
-                                        onChange={(e) => handleRegNumberChange('twoWheelers', v.id, e.target.value)}
-                                        className="font-semibold text-gray-800 dark:text-gray-200 bg-transparent focus:outline-none placeholder-gray-400 dark:placeholder-gray-500 w-full"
-                                    />
-                                </div>
-                                <button onClick={() => handleRemoveVehicle('twoWheelers', v.id)}><TrashIcon /></button>
-                            </li>
-                        ))}
-                    </ul>
+                    {/* 2W List */}
+                    <div className="space-y-3">
+                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Two-wheelers ({draftUser.twoWheelers.length})</h3>
+                        {draftUser.twoWheelers.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic">No two-wheelers registered</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {draftUser.twoWheelers.map(v => (
+                                    <div key={v.id} className="flex justify-between items-center bg-slate-900 border border-slate-850 p-3 rounded-lg hover:border-slate-700 transition-colors">
+                                        <div className="flex items-center flex-grow mr-2">
+                                            <BikeIcon className="w-4 h-4 mr-3 text-cyan-400 flex-shrink-0" />
+                                            <input
+                                                type="text"
+                                                placeholder="Add Reg. No."
+                                                value={v.regNumber}
+                                                onChange={(e) => handleRegNumberChange('twoWheelers', v.id, e.target.value)}
+                                                className="font-bold text-white bg-transparent focus:outline-none placeholder-slate-700 w-full text-xs uppercase"
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => handleRemoveVehicle('twoWheelers', v.id)} 
+                                            className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                            aria-label="Remove vehicle"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
-                    <form onSubmit={handleAddVehicle} className="mt-6 p-4 bg-white dark:bg-slate-700 rounded-lg shadow-sm">
-                        <h3 className="font-semibold mb-2">Add new vehicle</h3>
+                    {/* Add Vehicle Form */}
+                    <form onSubmit={handleAddVehicle} className="card bg-slate-900 border border-slate-800 p-4 space-y-3 shadow-inner">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Add new vehicle</h3>
                         <div className="flex gap-2">
-                            <select value={newVehicle.type} onChange={e => setNewVehicle(p => ({ ...p, type: e.target.value }))} className="bg-gray-100 dark:bg-slate-600 rounded p-2">
+                            <select 
+                                value={newVehicle.type} 
+                                onChange={e => setNewVehicle(p => ({ ...p, type: e.target.value }))} 
+                                className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-xs font-semibold focus:outline-none focus:border-cyan-500 text-white cursor-pointer"
+                            >
                                 <option value="fourWheelers">4W</option>
                                 <option value="twoWheelers">2W</option>
                             </select>
-                            <input value={newVehicle.reg} onChange={e => setNewVehicle(p => ({ ...p, reg: e.target.value.toUpperCase() }))} placeholder="MH 01 AB 1234" className="bg-gray-100 dark:bg-slate-600 rounded p-2 flex-grow placeholder-gray-400 dark:placeholder-gray-500" />
-                            <button type="submit" className="bg-blue-600 text-white px-4 rounded active:bg-blue-500">Add</button>
+                            <input
+                                value={newVehicle.reg}
+                                onChange={e => setNewVehicle(p => ({ ...p, reg: e.target.value.toUpperCase() }))}
+                                placeholder="MH 12 AB 1234"
+                                className="bg-slate-800 border border-slate-700 rounded-md px-3 py-2 flex-grow text-xs font-bold text-white focus:outline-none focus:border-cyan-500 placeholder-slate-600"
+                            />
+                            <button type="submit" className="btn btn-primary text-xs py-2 px-3 cursor-pointer">Add</button>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-slate-700/50 flex gap-4 bg-white/80 dark:bg-slate-900/30 backdrop-blur-lg">
+            <div className="flex-shrink-0 p-4 border-t border-slate-900 flex gap-4 bg-slate-900/60 backdrop-blur-md sticky bottom-0 z-20 safe-bottom">
                 <button
                     onClick={handleLogout}
-                    className="flex-1 bg-red-100 dark:bg-red-600/20 text-red-600 dark:text-red-400 font-bold py-3 rounded-lg hover:bg-red-200 dark:hover:bg-red-600/30 transition-colors"
+                    className="flex-1 btn btn-danger cursor-pointer"
                 >
                     Logout
                 </button>
                 <button
                     onClick={handleSaveChanges}
-                    className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition-colors"
+                    className="flex-1 btn btn-primary cursor-pointer"
                 >
                     Save Changes
                 </button>

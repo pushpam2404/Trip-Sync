@@ -1,7 +1,7 @@
-
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
-import { MainTab, Screen } from '../types';
+import { TabId } from '../types';
 import { HomeIcon, SakhaIcon, PlannerIcon, PlacesIcon, HistoryIcon } from '../constants';
 import { SakhaScreen } from './SakhaScreen';
 import { PlannerScreen } from './planner/PlannerScreen';
@@ -10,49 +10,54 @@ import { HistoryScreen } from './HistoryScreen';
 import { GlobalModals } from '../components/common/GlobalModals';
 
 export const MainScreen = () => {
-    const { activeTab, setActiveTab, setScreen } = useAppContext();
+    const { activeTab, setActiveTab } = useAppContext();
+    const navigate = useNavigate();
 
     const renderContent = () => {
         switch (activeTab) {
-            case MainTab.Sakha: return <SakhaScreen />;
-            case MainTab.Planner: return <PlannerScreen />;
-            case MainTab.Destinations: return <DestinationsScreen />;
-            case MainTab.History: return <HistoryScreen />;
+            case 'sakha': return <SakhaScreen />;
+            case 'planner': return <PlannerScreen />;
+            case 'destinations': return <DestinationsScreen />;
+            case 'history': return <HistoryScreen />;
             default: return <SakhaScreen />;
         }
     };
 
     const navItems = [
-        { tab: MainTab.Home, icon: HomeIcon, label: 'Home' },
-        { tab: MainTab.Sakha, icon: SakhaIcon, label: 'Sakha' },
-        { tab: MainTab.Planner, icon: PlannerIcon, label: 'My Planner' },
-        { tab: MainTab.Destinations, icon: PlacesIcon, label: 'My Places' },
-        { tab: MainTab.History, icon: HistoryIcon, label: 'Trip History' },
+        { id: 'home', icon: HomeIcon, label: 'Home', action: () => navigate('/') },
+        { id: 'sakha', icon: SakhaIcon, label: 'Sakha', action: () => setActiveTab('sakha') },
+        { id: 'planner', icon: PlannerIcon, label: 'Planner', action: () => setActiveTab('planner') },
+        { id: 'destinations', icon: PlacesIcon, label: 'Saved', action: () => setActiveTab('destinations') },
+        { id: 'history', icon: HistoryIcon, label: 'History', action: () => setActiveTab('history') },
     ];
 
     return (
-        <div className="h-screen flex flex-col pointer-events-auto">
-            <div className={`flex-grow overflow-y-auto`}>
+        <div className="h-screen flex flex-col bg-slate-950">
+            <div className="flex-grow overflow-y-auto pb-24">
                 {renderContent()}
             </div>
-            <div className="bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 p-2 z-20">
-                <div className="flex justify-around">
-                    {navItems.map(item => (
-                        <button
-                            key={item.tab}
-                            onClick={() => {
-                                if (item.tab === MainTab.Home) {
-                                    setScreen(Screen.Home);
-                                } else {
-                                    setActiveTab(item.tab);
-                                }
-                            }}
-                            className="flex flex-col items-center p-2 rounded-lg w-20"
-                        >
-                            <item.icon isActive={activeTab === item.tab} />
-                            <span className={`text-xs mt-1 text-center ${activeTab === item.tab ? 'text-blue-500 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{item.label}</span>
-                        </button>
-                    ))}
+            
+            {/* Minimal Premium Bottom Navigation Bar */}
+            <div className="fixed bottom-0 inset-x-0 bg-slate-900/60 backdrop-blur-md border-t border-slate-900 py-3 px-4 z-20 safe-bottom">
+                <div className="flex justify-around items-center max-w-sm mx-auto">
+                    {navItems.map(item => {
+                        const isCurrent = item.id === 'home' ? false : activeTab === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={item.action}
+                                className="group flex flex-col items-center justify-center space-y-1 py-1 rounded-lg w-14 active:scale-95 transition-all cursor-pointer"
+                                aria-label={`Go to ${item.label}`}
+                            >
+                                <div className={`p-1.5 rounded-lg transition-all duration-150 ${isCurrent ? 'bg-cyan-500/10 text-cyan-400' : 'text-slate-500 hover:text-slate-350'}`}>
+                                    <item.icon isActive={isCurrent} className="w-4.5 h-4.5" />
+                                </div>
+                                <span className={`text-[9px] font-bold tracking-wide uppercase transition-colors duration-150 ${isCurrent ? 'text-cyan-400' : 'text-slate-650 group-hover:text-slate-500'}`}>
+                                    {item.label}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
             <GlobalModals />

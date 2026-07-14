@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { useAppContext } from '../../contexts/AppContext';
-import { Screen } from '../../types';
 import { ArrowLeftIcon } from '../../constants';
 
 // Note: The new design for TabScreenHeader in some screens (Sakha, Planner, History) seems to be just a title centered or with back button?

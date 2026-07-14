@@ -1,9 +1,7 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { Trip } from '../types';
 import { HistoryIcon, TrashIcon, CarIcon, BikeIcon, TrainIcon, WalkingIcon } from '../constants';
-
 import { TabScreenHeader } from '../components/common/TabScreenHeader';
 
 export const HistoryScreen = () => {
@@ -20,9 +18,9 @@ export const HistoryScreen = () => {
     }
 
     const DetailItem = ({ icon: Icon, value }: { icon: React.ElementType, value: string | number }) => (
-        <div className="flex items-center text-sm bg-gray-100 dark:bg-slate-600/50 py-1 px-2 rounded-md">
-            <Icon className="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
-            <span className="ml-1.5 text-gray-700 dark:text-gray-300">{value}</span>
+        <div className="flex items-center text-[10px] font-bold uppercase tracking-wider bg-slate-800 border border-slate-700/40 py-1 px-2.5 rounded-md text-slate-350">
+            <Icon className="w-3.5 h-3.5 text-cyan-400 mr-1.5 flex-shrink-0" />
+            <span>{value}</span>
         </div>
     );
 
@@ -51,13 +49,13 @@ export const HistoryScreen = () => {
 
     if (showConfirm) {
         return (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white dark:bg-slate-700 rounded-lg p-6 text-center text-gray-900 dark:text-white">
-                    <h2 className="text-xl font-bold">Are you sure?</h2>
-                    <p className="text-gray-600 dark:text-gray-300 mt-2">This will permanently delete all your trip history. This action cannot be undone.</p>
-                    <div className="flex gap-4 mt-6">
-                        <button onClick={() => setShowConfirm(false)} className="flex-1 bg-gray-200 dark:bg-gray-600 font-semibold py-2.5 rounded-lg">Cancel</button>
-                        <button onClick={handleDeleteAll} className="flex-1 bg-red-600 text-white font-bold py-2.5 rounded-lg">Delete All</button>
+            <div className="overlay animate-fade-in">
+                <div className="modal text-center space-y-4 max-w-sm">
+                    <h2 className="text-base font-bold text-white">Clear Trip History?</h2>
+                    <p className="text-xs text-slate-400 leading-relaxed">This will permanently delete all your trip history logs. This action cannot be undone.</p>
+                    <div className="flex gap-3 pt-2">
+                        <button onClick={() => setShowConfirm(false)} className="flex-1 btn btn-secondary text-xs py-2 cursor-pointer">Cancel</button>
+                        <button onClick={handleDeleteAll} className="flex-1 btn btn-danger text-xs py-2 cursor-pointer">Delete All</button>
                     </div>
                 </div>
             </div>
@@ -68,12 +66,12 @@ export const HistoryScreen = () => {
         return (
             <>
                 <TabScreenHeader title="Trip History" />
-                <div className="p-4 text-gray-900 dark:text-white text-center mt-10">
-                    <div className="w-20 h-20 mx-auto bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center">
-                        <HistoryIcon isActive={false} className="w-10 h-10 text-gray-400 dark:text-white/50" />
+                <div className="p-6 text-slate-100 text-center mt-12 max-w-sm w-full mx-auto animate-fade-in">
+                    <div className="w-16 h-16 mx-auto bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                        <HistoryIcon isActive={false} className="w-6 h-6 text-slate-500" />
                     </div>
-                    <h2 className="text-xl font-bold mt-4">No Trip History</h2>
-                    <p className="text-gray-500 dark:text-gray-300 mt-1">Completed trips from "Sakha" will appear here.</p>
+                    <h2 className="text-base font-bold text-white">No trip history yet</h2>
+                    <p className="text-xs text-slate-500 mt-2 leading-relaxed">Completed driving trips from Sakha navigation will be recorded here.</p>
                 </div>
             </>
         )
@@ -82,44 +80,51 @@ export const HistoryScreen = () => {
     return (
         <>
             <TabScreenHeader title="Trip History" />
-            <div className="p-4 text-gray-900 dark:text-white">
-                <div className="flex justify-between items-center mb-4">
-                    <p className="text-gray-500 dark:text-gray-300">{trips.length} trip{trips.length > 1 ? 's' : ''} recorded.</p>
-                    <button onClick={() => setShowConfirm(true)} className="text-red-500 dark:text-red-400 text-sm font-semibold">Delete All</button>
+            <div className="p-6 text-slate-100 max-w-sm w-full mx-auto space-y-4 animate-fade-in">
+                <div className="flex justify-between items-center text-xs">
+                    <p className="text-slate-500">{trips.length} trip{trips.length > 1 ? 's' : ''} recorded</p>
+                    <button 
+                        onClick={() => setShowConfirm(true)} 
+                        className="text-rose-500 hover:text-rose-400 font-bold transition-colors cursor-pointer"
+                    >
+                        Delete All
+                    </button>
                 </div>
 
-                <ul className="space-y-4 landscape:grid landscape:grid-cols-2 landscape:gap-4 landscape:space-y-0">
+                <div className="space-y-4">
                     {trips.map((trip, index) => (
-                        <li key={trip.id} className="bg-white dark:bg-slate-700 p-4 rounded-xl shadow-lg">
+                        <div key={trip.id} className="card bg-slate-900 border border-slate-800 p-5 shadow-sm space-y-4">
                             <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold">{`TRIP ${trips.length - index}`}</p>
-                                    <h3 className="text-lg font-bold">{trip.from} to {trip.to}</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-300">{trip.date}</p>
+                                <div className="space-y-1">
+                                    <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">{`Trip Log #${trips.length - index}`}</span>
+                                    <h3 className="text-sm font-bold text-white leading-tight">{trip.from} to {trip.to}</h3>
+                                    <p className="text-[10px] text-slate-500 font-medium">{trip.date}</p>
                                 </div>
-                                <button onClick={() => removeTrip(trip.id)} className="p-2 -mt-2 -mr-2">
-                                    <TrashIcon />
+                                <button 
+                                    onClick={() => removeTrip(trip.id)} 
+                                    className="text-slate-500 hover:text-rose-400 transition-colors p-1 cursor-pointer"
+                                    aria-label="Remove trip log"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
                                 </button>
                             </div>
 
-                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-2">
+                            <div className="pt-3 border-t border-slate-800/80 flex flex-wrap gap-2">
                                 <DetailItem icon={ModeIcon({ mode: trip.mode })} value={trip.vehicleNumber || trip.mode} />
-                                <DetailItem icon={TravelersIcon} value={`${trip.travelers} Traveler${trip.travelers > 1 ? 's' : ''}`} />
+                                <DetailItem icon={TravelersIcon} value={`${trip.travelers} Pax`} />
                                 <DetailItem icon={StopsIcon} value={`${trip.stops} Stop${trip.stops > 1 ? 's' : ''}`} />
                                 <DetailItem icon={HistoryIcon} value={trip.duration} />
                             </div>
 
-                            <div className="mt-4">
-                                <button
-                                    onClick={() => handleNavigate(trip)}
-                                    className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-500 transition-colors"
-                                >
-                                    Navigate
-                                </button>
-                            </div>
-                        </li>
+                            <button
+                                onClick={() => handleNavigate(trip)}
+                                className="btn btn-primary btn-full py-2 text-xs font-bold uppercase tracking-wider mt-2 cursor-pointer"
+                            >
+                                Re-Navigate
+                            </button>
+                        </div>
                     ))}
-                </ul>
+                </div>
             </div>
         </>
     );

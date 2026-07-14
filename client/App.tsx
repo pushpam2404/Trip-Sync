@@ -1,7 +1,10 @@
 import React from 'react';
-import { useJsApiLoader } from '@react-google-maps/api';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useMapplsLoader } from './src/hooks/useMapplsLoader';
 import { AppProvider, useAppContext } from './src/contexts/AppContext';
-import { Screen } from './src/types';
+import { ProtectedRoute } from './src/components/common/ProtectedRoute';
+
+// Screen Imports
 import { SplashScreen } from './src/screens/SplashScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { SignUpScreen } from './src/screens/auth/SignUpScreen';
@@ -12,53 +15,90 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { NavigationScreen } from './src/screens/NavigationScreen';
 import { AccountScreen } from './src/screens/AccountScreen';
 
-const libraries: ("places" | "geometry")[] = ["places", "geometry"];
-
-const Content = () => {
-    const { screen, currentTripDetails, endNavigation } = useAppContext();
-
-    // Load Google Maps API globally
-    const { isLoaded, loadError } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-        libraries: libraries
-    });
+const AppContent = () => {
+    // Load Mappls SDK script dynamically
+    const { isLoaded, loadError } = useMapplsLoader();
 
     if (loadError) {
-        return <div className="h-screen flex items-center justify-center text-red-500">Error loading maps: {loadError.message}</div>;
+        return (
+            <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-red-500 p-6 text-center">
+                <h1 className="text-2xl font-bold mb-2">Mappls Maps Load Error</h1>
+                <p className="text-slate-400">{loadError.message}</p>
+            </div>
+        );
     }
 
     if (!isLoaded) {
-        // You might want to show a splash screen or a loading spinner here while maps load
-        // But for now, returning null or a spinner is fine. 
-        // If we return SplashScreen, it might flicker if app logic is also deciding Screen.Splash.
-        // Let's just return a simple loader or keep existing behavior if it wasn't blocking.
-        // However, providing the script early is the goal.
-        return <div className="h-screen flex items-center justify-center bg-gray-900 text-white">Loading Maps...</div>;
+        return (
+            <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-white">
+                <div className="w-12 h-12 rounded-full border-4 border-cyan-500 border-t-transparent animate-spin mb-4"></div>
+                <p className="text-slate-400 font-medium">Initializing Mappls Map Platform...</p>
+            </div>
+        );
     }
 
-    switch (screen) {
-        case Screen.Splash: return <SplashScreen />;
-        case Screen.Login: return <LoginScreen />;
-        case Screen.SignUp: return <SignUpScreen />;
-        case Screen.ProfileSetup1: return <ProfileSetup1Screen />;
-        case Screen.ProfileSetup2: return <ProfileSetup2Screen />;
-        case Screen.Home: return <HomeScreen />;
-        case Screen.Main: return <MainScreen />;
-        case Screen.Navigation:
-            return currentTripDetails
-                ? <NavigationScreen tripDetails={currentTripDetails} onCheckOut={endNavigation} />
-                : <HomeScreen />; // Fallback if no trip details
-        case Screen.Account: return <AccountScreen />;
-        default: return <SplashScreen />;
-    }
+    return (
+        <Routes>
+            {/* Public Routes */}
+            <Route path="/splash" element={<SplashScreen />} />
+            <Route path="/login" element={<LoginScreen />} />
+            <Route path="/signup" element={<SignUpScreen />} />
+
+            {/* Profile Setup - Auth protected */}
+            <Route path="/profile/setup-1" element={
+                <ProtectedRoute>
+                    <ProfileSetup1Screen />
+                </ProtectedRoute>
+            } />
+            <Route path="/profile/setup-2" element={
+                <ProtectedRoute>
+                    <ProfileSetup2Screen />
+                </ProtectedRoute>
+            } />
+
+            {/* Authenticated Dashboard / Workflows */}
+            <Route path="/" element={
+                <ProtectedRoute>
+                    <HomeScreen />
+                </ProtectedRoute>
+            } />
+
+            {/* Main Tabs Container (Sakha, Planner, Saved, History) */}
+            <Route path="/app" element={
+                <ProtectedRoute>
+                    <MainScreen />
+                </ProtectedRoute>
+            } />
+
+            {/* Interactive Live Navigation */}
+            <Route path="/navigation/*" element={
+                <ProtectedRoute>
+                    <NavigationScreen />
+                </ProtectedRoute>
+            } />
+
+            {/* Account Settings */}
+            <Route path="/account" element={
+                <ProtectedRoute>
+                    <AccountScreen />
+                </ProtectedRoute>
+            } />
+
+            {/* Catch-all Redirect */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+    );
 };
 
 const App = () => {
     return (
-        <AppProvider>
-            <Content />
-        </AppProvider>
+        <BrowserRouter>
+            <AppProvider>
+                <div className="relative min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden selection:bg-cyan-500/30">
+                    <AppContent />
+                </div>
+            </AppProvider>
+        </BrowserRouter>
     );
 };
 

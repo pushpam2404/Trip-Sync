@@ -1,10 +1,7 @@
 import jwt from 'jsonwebtoken';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import User from '../models/User';
-
-interface AuthRequest extends Request {
-    user?: any;
-}
+import { AuthRequest } from '../types';
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
     let token;

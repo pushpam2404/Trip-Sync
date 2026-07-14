@@ -1,28 +1,9 @@
+/**
+ * TripSync — Shared Type Definitions
+ * Central type hub for the entire frontend application.
+ */
 
-import React from 'react';
-
-// FIX: Removed unnecessary self-import of 'MainTab' and 'Screen' which was causing declaration conflicts.
-export enum Screen {
-  Splash,
-  Login,
-  SignUp,
-  ProfileSetup1,
-  ProfileSetup2,
-  Home,
-  Main,
-  Account,
-  Navigation,
-}
-
-export enum MainTab {
-  Home,
-  Sakha,
-  Planner,
-  Destinations,
-  History,
-}
-
-export type ModalType = 'travelMode' | 'vehicleSelection' | null;
+// ─── Vehicle & User ───
 
 export interface Vehicle {
   id: string;
@@ -32,10 +13,53 @@ export interface Vehicle {
 export interface UserProfile {
   name: string;
   phone: string;
-  password: string;
   twoWheelers: Vehicle[];
   fourWheelers: Vehicle[];
+  token?: string;
 }
+
+export interface ProfileSetupData {
+  name: string;
+  numTwoWheelers: number;
+  numFourWheelers: number;
+}
+
+export interface VehicleRegistrationData {
+  twoWheelers: string[];
+  fourWheelers: string[];
+}
+
+// ─── Trips ───
+
+export type TravelMode = '4W' | '2W' | 'train' | 'walking';
+
+export interface Trip {
+  id: string;
+  tripName: string;
+  date: string;
+  duration: string;
+  from: string;
+  fromSubtitle?: string;
+  startTime?: string;
+  distance?: number;
+  to: string;
+  toSubtitle?: string;
+  endTime?: string;
+  vehicleNumber: string;
+  travelers: number;
+  stops: number;
+  mode: TravelMode;
+}
+
+export interface TripDetails {
+  from: string;
+  to: string;
+  mode: TravelMode;
+  travelers: number;
+  vehicleNumber?: string;
+}
+
+// ─── Navigation ───
 
 export interface SavedRoute {
   id: string;
@@ -45,92 +69,48 @@ export interface SavedRoute {
   travelTime: string;
 }
 
-export interface Trip {
-  id: string;
-  tripName: string;
-  date: string;
-  duration: string;
-  from: string;
-  fromSubtitle: string;
-  startTime: string;
-  distance: number;
-  to: string;
-
-  toSubtitle: string;
-  endTime: string;
-  vehicleNumber?: string;
-  travelers: number;
-  stops: number;
-  mode: '4W' | '2W' | 'train' | 'walking';
+export interface PlacePrediction {
+  description: string;
+  place_id: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
 }
 
+export interface WaypointStop {
+  location: { lat: number; lng: number } | string;
+  name: string;
+  stopover: boolean;
+}
+
+// ─── Planner ───
 
 export interface Stay {
   id: string;
   name: string;
-  distance: string;
-  rating: number;
-  image: string;
+  distance?: string;
+  rating?: number;
+  image?: string;
 }
 
-export interface ProfileSetupData {
+export interface Attraction {
+  id: string;
   name: string;
-  numTwoWheelers: number;
-  numFourWheelers: number;
+  vicinity?: string;
+  rating?: number;
+  geometry?: {
+    location: {
+      lat: () => number;
+      lng: () => number;
+    };
+  };
 }
 
-export interface PlanningTrip {
-  destination: string;
-  stayLocation?: string;
-  hasStayPlanned: boolean;
-}
+// ─── UI State ───
 
-export interface TripDetails {
-  from: string;
-  to: string;
-  mode: '4W' | '2W' | 'train' | 'walking';
-  travelers: number;
-  vehicleNumber?: string;
-}
+export type Theme = 'light' | 'dark';
 
-export interface AppContextType {
-  screen: Screen;
-  setScreen: (screen: Screen) => void;
-  user: UserProfile | null;
-  setUser: (user: UserProfile | null) => void;
-  savedRoutes: SavedRoute[];
-  addRoute: (route: Omit<SavedRoute, 'id' | 'travelTime'>) => void;
-  removeRoute: (id: string) => void;
-  reverseRoute: (id: string) => void;
-  trips: Trip[];
-  addTrip: (trip: Omit<Trip, 'id' | 'tripName' | 'date' | 'duration' | 'startTime' | 'endTime'>) => void;
-  removeTrip: (id: string) => void;
-  clearTrips: () => void;
-  navigationDestination: string | null;
-  setNavigationDestination: (target: string | null) => void;
-  navigationOrigin: string | null;
-  setNavigationOrigin: (target: string | null) => void;
-  profileSetupData: ProfileSetupData | null;
-  startProfileSetup: (data: ProfileSetupData) => void;
-  completeProfileSetup: (vehicles: { twoWheelers: string[], fourWheelers: string[] }) => void;
-  skipProfileSetup: () => void;
-  addVehicle: (type: 'twoWheelers' | 'fourWheelers', regNumber: string) => void;
-  removeVehicle: (type: 'twoWheelers' | 'fourWheelers', id: string) => void;
-  // FIX: Refactored `updateVehicle` to take a single object argument to resolve a signature mismatch error.
-  updateVehicle: (payload: { type: 'twoWheelers' | 'fourWheelers'; vehicle: Vehicle }) => void;
-  activeTab: MainTab;
-  setActiveTab: (tab: MainTab) => void;
-  activeModal: ModalType;
-  setActiveModal: (modal: ModalType) => void;
-  startNavigationFrom: (origin: string, destination: string) => void;
-  planningTrip: PlanningTrip | null;
-  setPlanningTrip: React.Dispatch<React.SetStateAction<PlanningTrip | null>>;
-  isNavigating: boolean;
-  currentTripDetails: TripDetails | null;
-  startNavigation: (details: TripDetails) => void;
-  endNavigation: () => void;
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
-  handleLogin: (phone: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  handleSignup: (phone: string, password: string) => Promise<{ success: boolean; message?: string }>;
-}
+export type ModalType = 'travelMode' | 'vehicleSelection' | null;
+
+export type TabId = 'sakha' | 'planner' | 'destinations' | 'history';

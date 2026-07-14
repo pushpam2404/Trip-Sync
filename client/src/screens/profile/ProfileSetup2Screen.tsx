@@ -1,11 +1,12 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { useAppContext } from '../../contexts/AppContext';
-import { Screen } from '../../types';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeftIcon } from '../../constants';
 
 export const ProfileSetup2Screen = () => {
-    const { profileSetupData, completeProfileSetup, skipProfileSetup, setScreen } = useAppContext();
+    const { profileSetupData, completeProfileSetup, skipProfileSetup } = useAuth();
+    const navigate = useNavigate();
+
     const [twoWheelers, setTwoWheelers] = useState<string[]>([]);
     const [fourWheelers, setFourWheelers] = useState<string[]>([]);
 
@@ -13,8 +14,10 @@ export const ProfileSetup2Screen = () => {
         if (profileSetupData) {
             setTwoWheelers(Array(profileSetupData.numTwoWheelers).fill(''));
             setFourWheelers(Array(profileSetupData.numFourWheelers).fill(''));
+        } else {
+            navigate('/profile/setup-1');
         }
-    }, [profileSetupData]);
+    }, [profileSetupData, navigate]);
 
     const handleComplete = () => {
         completeProfileSetup({ twoWheelers, fourWheelers });
@@ -30,64 +33,81 @@ export const ProfileSetup2Screen = () => {
         return allTwoWheelersFilled && allFourWheelersFilled;
     }, [twoWheelers, fourWheelers, profileSetupData]);
 
-
     if (!profileSetupData) return null;
 
     const hasVehicles = profileSetupData.numTwoWheelers > 0 || profileSetupData.numFourWheelers > 0;
 
-    const renderVehicleInputs = (count: number, type: 'two' | 'four', state: string[], setState: React.Dispatch<React.SetStateAction<string[]>>) => {
+    const renderVehicleInputs = (
+        count: number,
+        type: '2-Wheeler' | '4-Wheeler',
+        state: string[],
+        setState: React.Dispatch<React.SetStateAction<string[]>>
+    ) => {
         if (count === 0) return null;
         return (
-            <div className="mt-6">
-                <h2 className="text-xl font-bold">Your {type}-wheelers</h2>
+            <div className="space-y-3">
+                <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{type} Registration Details</h2>
                 {Array.from({ length: count }).map((_, index) => (
-                    <input
-                        key={`${type}-${index}`}
-                        type="text"
-                        value={state[index] || ''}
-                        onChange={(e) => {
-                            const newState = [...state];
-                            newState[index] = e.target.value.toUpperCase();
-                            setState(newState);
-                        }}
-                        className="w-full bg-gray-100 dark:bg-slate-700 rounded-lg p-3 mt-2 placeholder-gray-400 dark:placeholder-gray-500"
-                        placeholder={`Registration number for ${type}-wheeler ${index + 1}`}
-                    />
+                    <div key={`${type}-${index}`} className="space-y-1">
+                        <label className="block text-xs text-slate-500 font-medium">{type} #{index + 1} Reg. No.</label>
+                        <input
+                            type="text"
+                            value={state[index] || ''}
+                            onChange={(e) => {
+                                const newState = [...state];
+                                newState[index] = e.target.value.toUpperCase();
+                                setState(newState);
+                            }}
+                            className="input"
+                            placeholder="MH 12 AB 1234"
+                        />
+                    </div>
                 ))}
             </div>
         );
     };
 
     return (
-        <div className="h-screen text-gray-900 dark:text-white flex flex-col">
-            <header className="flex items-center p-4">
-                <button onClick={() => setScreen(Screen.ProfileSetup1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700/50" aria-label="Go back">
-                    <ArrowLeftIcon className="h-6 w-6 text-gray-900 dark:text-white" />
-                </button>
-            </header>
-            <div className="p-8 pt-0 h-full flex flex-col">
-                <div className="flex-grow overflow-y-auto">
-                    <h1 className="text-3xl font-bold mt-2">Add your vehicles</h1>
-                    <p className="text-gray-500 dark:text-gray-300 mt-2">
-                        {hasVehicles ? "Enter registration numbers." : "You have no vehicles to add."}
-                    </p>
+        <div className="min-h-screen text-slate-100 flex flex-col bg-slate-950 p-6 relative overflow-hidden">
+            {/* Soft Ambient Background Glow */}
+            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
-                    {renderVehicleInputs(profileSetupData.numTwoWheelers, 'two', twoWheelers, setTwoWheelers)}
-                    {renderVehicleInputs(profileSetupData.numFourWheelers, 'four', fourWheelers, setFourWheelers)}
+            <header className="flex items-center justify-between py-4 z-20">
+                <button 
+                    onClick={() => navigate('/profile/setup-1')} 
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer" 
+                    aria-label="Go back"
+                >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                </button>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Step 2 of 2</div>
+            </header>
+
+            <div className="flex-grow max-w-sm w-full mx-auto flex flex-col justify-center animate-fade-in relative z-10">
+                <div className="mb-8 text-center">
+                    <h1 className="text-2xl font-bold tracking-tight text-white">Register vehicles</h1>
+                    <p className="text-xs text-slate-400 mt-2">
+                        {hasVehicles ? "Enter your vehicle registration numbers for automated log sheets" : "No vehicles declared. You are ready to complete your profile."}
+                    </p>
                 </div>
 
-                <div className="mt-auto pt-4 space-y-3 flex-shrink-0">
+                <div className="space-y-6 overflow-y-auto max-h-[40vh] pr-1.5 scrollbar-thin">
+                    {renderVehicleInputs(profileSetupData.numTwoWheelers, '2-Wheeler', twoWheelers, setTwoWheelers)}
+                    {renderVehicleInputs(profileSetupData.numFourWheelers, '4-Wheeler', fourWheelers, setFourWheelers)}
+                </div>
+
+                <div className="mt-8 space-y-3">
                     <button
                         onClick={handleComplete}
                         disabled={!canComplete}
-                        className="w-full bg-blue-600 text-white font-bold py-4 rounded-lg disabled:bg-gray-300 dark:disabled:bg-gray-600"
+                        className="btn btn-primary btn-full"
                     >
-                        Complete Setup
+                        Complete Profile Setup
                     </button>
                     {!hasVehicles && (
                         <button
                             onClick={skipProfileSetup}
-                            className="w-full text-gray-500 dark:text-gray-400 font-semibold py-2 rounded-lg"
+                            className="btn btn-ghost btn-full font-semibold text-xs"
                         >
                             Skip for now
                         </button>
