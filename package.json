@@ -1,24 +1,27 @@
 {
-  "name": "trip_sync_final-main",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "name": "trip-sync",
+  "version": "1.1.0",
+  "description": "Road trip planner for India: routes, stays, stops along the way and an AI co-pilot called Sakha.",
+  "private": true,
+  "license": "MIT",
+  "author": "pushpam2404",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bunny-2404/Trip_Sync.git"
+    "url": "git+https://github.com/pushpam2404/Trip-Sync.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/bunny-2404/Trip_Sync/issues"
+    "url": "https://github.com/pushpam2404/Trip-Sync/issues"
   },
-  "homepage": "https://github.com/bunny-2404/Trip_Sync#readme",
-  "devDependencies": {
-    "@types/node": "^25.0.3"
+  "homepage": "https://github.com/pushpam2404/Trip-Sync#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix client run typecheck",
+    "test": "npm --prefix server test"
   }
 }

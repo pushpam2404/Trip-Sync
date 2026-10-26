@@ -1,55 +1,24 @@
-# Dependencies
 node_modules/
-**/node_modules/
-.pnp
-.pnp.js
-
-# Testing
+dist/
 coverage/
 
-# Production
-build/
-dist/
-**/dist/
-
-# Configuration and Local Files
+# Environment files hold secrets; only the .env.example templates are tracked
 .env
-**/.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 
-# IDEs & System Files
+# Editors and OS
 .DS_Store
-**/.DS_Store
 .idea/
 .vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
 
-# Agent Customizations & Temporary Files
-.agents/
-design-system/
-docs/scratchpad*
-**/scratch/
-
 # Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-logs/
 *.log
+logs/
 
-# Vercel
+# Local tooling
 .vercel/
-
-# Antigravity/Gemini IDE & Generated Artifacts
+.agents/
 .gemini/
-*REPORT.md
-*SUMMARY.md
-*AUDIT.md
-REVIEW.md
+design-system/
