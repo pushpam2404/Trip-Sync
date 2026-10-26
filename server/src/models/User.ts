@@ -18,10 +18,13 @@ export interface UserMethods {
     matchPassword(entered: string): Promise<boolean>;
 }
 
-const vehicleSchema = new mongoose.Schema<IVehicle>({
-    id: String,
-    regNumber: { type: String, required: true, trim: true },
-});
+const vehicleSchema = new mongoose.Schema<IVehicle>(
+    {
+        id: String,
+        regNumber: { type: String, required: true, trim: true },
+    },
+    { _id: false },
+);
 
 const userSchema = new mongoose.Schema<IUser, Model<IUser, {}, UserMethods>, UserMethods>(
     {
