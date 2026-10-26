@@ -1,100 +1,45 @@
-import { Response } from "express";
-import Trip from "../models/Trip";
-import { AuthRequest } from "../types";
+import { Response } from 'express';
+import Trip from '../models/Trip';
+import { AuthRequest } from '../types';
+import { HttpError } from '../middleware/errorHandler';
 
-// @desc    Create a new trip
-// @route   POST /api/trips
-// @access  Private
+const pickTripFields = (body: any) => {
+    const { origin, destination, startDate, startTime, vehicle, stops, travelers, duration, mode } = body;
+    return { origin, destination, startDate, startTime, vehicle, stops, travelers, duration, mode };
+};
+
+// POST /api/trips
 export const createTrip = async (req: AuthRequest, res: Response) => {
-  try {
-    const {
-      origin,
-      destination,
-      startDate,
-      startTime,
-      vehicle,
-      stops,
-      travelers,
-      duration,
-      mode,
-    } = req.body;
-
-    const trip = await Trip.create({
-      userId: req.user._id,
-      origin,
-      destination,
-      startDate,
-      startTime,
-      vehicle,
-      stops,
-      travelers,
-      duration,
-      mode,
-    });
-
+    const trip = await Trip.create({ ...pickTripFields(req.body), userId: req.user!._id });
     res.status(201).json(trip);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
 };
 
-// @desc    Get user trips
-// @route   GET /api/trips
-// @access  Private
+// GET /api/trips
 export const getTrips = async (req: AuthRequest, res: Response) => {
-  try {
-    const trips = await Trip.find({ userId: req.user._id }).sort({
-      createdAt: -1,
-    });
+    const trips = await Trip.find({ userId: req.user!._id }).sort({ createdAt: -1 });
     res.json(trips);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
 };
 
-// @desc    Update a trip
-// @route   PUT /api/trips/:id
-// @access  Private
+// PUT /api/trips/:id
 export const updateTrip = async (req: AuthRequest, res: Response) => {
-  try {
-    const trip = await Trip.findById(req.params.id);
-
-    if (!trip) {
-      return res.status(404).json({ message: "Trip not found" });
-    }
-
-    if (trip.userId.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
-
-    const updatedTrip = await Trip.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-
-    res.json(updatedTrip);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
+    const trip = await Trip.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user!._id },
+        pickTripFields(req.body),
+        { new: true, runValidators: true },
+    );
+    if (!trip) throw new HttpError(404, 'Trip not found');
+    res.json(trip);
 };
 
-// @desc    Delete a trip
-// @route   DELETE /api/trips/:id
-// @access  Private
+// DELETE /api/trips/:id
 export const deleteTrip = async (req: AuthRequest, res: Response) => {
-  try {
-    const trip = await Trip.findById(req.params.id);
+    const trip = await Trip.findOneAndDelete({ _id: req.params.id, userId: req.user!._id });
+    if (!trip) throw new HttpError(404, 'Trip not found');
+    res.json({ message: 'Trip removed' });
+};
 
-    if (!trip) {
-      return res.status(404).json({ message: "Trip not found" });
-    }
-
-    if (trip.userId.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
-
-    await trip.deleteOne();
-    res.json({ message: "Trip removed" });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
+// DELETE /api/trips
+export const clearTrips = async (req: AuthRequest, res: Response) => {
+    const result = await Trip.deleteMany({ userId: req.user!._id });
+    res.json({ message: 'Trips removed', deleted: result.deletedCount });
 };

@@ -5,10 +5,11 @@ const savedRouteSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'User',
+        index: true,
     },
     origin: { type: String, required: true },
     destination: { type: String, required: true },
-    stay: { type: String }, // For 'Saved Places' which might be just a single location, or a route with a stay
+    stay: { type: String }, // the stay this hop starts from
 }, {
     timestamps: true,
 });
