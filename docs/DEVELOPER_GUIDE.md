@@ -1,103 +1,123 @@
-# TripSync Developer & Environment Setup Guide
+# Developer guide
 
-This document is a comprehensive guide to onboarding developers, configuring environment variables, running the codebase locally, and extending its features.
+## Requirements
 
----
+- Node.js 20 or newer
+- A MongoDB database: local, or a free Atlas cluster
+- Optional, for the full experience: a Mappls account (map SDK key and REST key) and a Google AI Studio key for Gemini
 
-## 1. Directory Structure
+Without the Mappls keys the app still runs. Login, history, saved routes and Sakha work; place suggestions are empty and the map screen shows an explanation.
 
-Ensure files are placed in their appropriate directories:
+## First run
 
-```
-Trip_Sync/
-├── client/                     # React Frontend Application
-│   ├── src/
-│   │   ├── components/         # Modals, icons, overlays
-│   │   ├── contexts/           # Subcontexts (Auth, Trip, Nav, UI)
-│   │   ├── services/           # API handlers (Axios, Maps, Gemini)
-│   │   └── screens/            # Application Screen Views
-├── server/                     # Express Backend Application
-│   ├── src/
-│   │   ├── config/             # DB connection configuration
-│   │   ├── controllers/        # Route controllers
-│   │   ├── middleware/         # Validation and security middleware
-│   │   └── models/             # Mongoose Schemas
-```
-
----
-
-## 2. Environment Variables
-
-Create `.env` configuration files inside their respective folders.
-
-### Client Variables (`client/.env`)
-* **`VITE_API_URL`:** Backend API base URL (Default: `http://localhost:3001/api`).
-* **`VITE_MAPPLS_MAP_SDK_KEY` (Required):** Your MapmyIndia Mappls SDK Access Token.
-* **`VITE_MAPPLS_REST_API_KEY` (Required):** Your MapmyIndia REST API Access Token.
-* **`GEMINI_API_KEY` (Required):** API key generated via Google AI Studio for conversational chatbot features.
-
-### Server Variables (`server/.env`)
-* **`PORT`:** Listener port (Default: `3001`).
-* **`MONGO_URI` (Required):** MongoDB Atlas server connection string or local MongoDB instance path.
-* **`JWT_SECRET` (Required):** Security string to sign JSON Web Tokens.
-* **`ALLOWED_ORIGINS`:** White-list client URLs permitted to access API routes (CORS).
-
----
-
-## 3. Getting Started Locally
-
-### 1. Prerequisites
-Install **Node.js** (v18+) and **npm**. Make sure **MongoDB** is running locally on port `27017` or use a MongoDB Atlas cluster.
-
-### 2. Running Backend Server
 ```bash
-cd server
-npm install
-npm run dev
-```
-*The server boots on `http://localhost:3001`.*
+git clone https://github.com/pushpam2404/Trip-Sync.git
+cd Trip-Sync
+npm run install:all
 
-### 3. Running Frontend Client
+cp server/.env.example server/.env      # set MONGO_URI and JWT_SECRET at least
+cp client/.env.example client/.env.local
+
+npm run dev:server    # terminal 1, http://localhost:3001
+npm run dev:client    # terminal 2, http://localhost:5173
+```
+
+Generate a JWT secret with:
+
 ```bash
-cd client
-npm install
-npm run dev
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
-*The client boots on `http://localhost:5173`.*
 
----
+## Environment variables
 
-## 4. Coding Conventions & Extending Features
+### `server/.env`
 
-### Naming Schemes
-* **UI Components:** PascalCase with matching filename (e.g., `InstructionPanel.tsx`).
-* **React Hooks:** camelCase prefixed with `use` (e.g., `useAuth.tsx`).
-* **DB REST Routes:** pluralized kebab-case nouns (e.g., `/api/saved-routes`).
+| Name | Required | Notes |
+|------|----------|-------|
+| `MONGO_URI` | yes | Connection string. The server exits at startup if it is missing. |
+| `JWT_SECRET` | yes | Signing secret. No default. |
+| `ALLOWED_ORIGINS` | no | Comma separated browser origins. Defaults to `http://localhost:5173,http://localhost:3000`. Set it to your Vercel URL in production. |
+| `GEMINI_API_KEY` | no | Enables Sakha. Without it `POST /api/sakha` answers 503. |
+| `GEMINI_MODEL` | no | Defaults to `gemini-3.5-flash`. Change it if that model name is not available to your key. |
+| `PORT` | no | Defaults to 3001. Render sets it. |
 
-### How to Add a New Page / Route
-1. Create your visual page inside `client/src/screens/YourScreen.tsx`.
-2. Register the path route inside `client/App.tsx`:
-   ```typescript
-   <Route path="/your-path" element={
-       <ProtectedRoute>
-           <YourScreen />
-       </ProtectedRoute>
-   } />
-   ```
-3. Use the standard `useNavigate` hook from `react-router-dom` to transition paths:
-   ```typescript
-   const navigate = useNavigate();
-   navigate('/your-path');
-   ```
+### `client/.env.local`
 
-### Adding Server Validation to Endpoints
-Input payloads should always be validated. Inject schemas into routes prior to controller mounting:
-```typescript
-import { body } from 'express-validator';
-import { validateRequest } from '../middleware/validationMiddleware';
+Vite only exposes names that start with `VITE_`, and everything in this file ends up in the browser bundle.
 
-router.post('/route', [
-    body('param').trim().notEmpty().withMessage('Param is required'),
-    validateRequest
-], controllerAction);
-```
+| Name | Notes |
+|------|-------|
+| `VITE_API_URL` | API base URL, for example `http://localhost:3001/api`. In development it defaults to that. A production build without it falls back to the deployed Render API configured in `src/services/api.ts`. |
+| `VITE_MAPPLS_MAP_SDK_KEY` | Loads the map on `/navigation`. |
+| `VITE_MAPPLS_REST_API_KEY` | Place search, geocoding, directions. |
+
+Mappls keys are meant to be used from the browser. Restrict them to your domains in the Mappls console.
+
+## Scripts
+
+From the repository root:
+
+| Command | What it does |
+|---------|--------------|
+| `npm run install:all` | Installs both packages. |
+| `npm run dev:server`, `npm run dev:client` | Dev servers. |
+| `npm run typecheck` | `tsc --noEmit` in both packages. |
+| `npm run build` | Builds the server to `server/dist` and the client to `client/dist`. |
+| `npm test` | Server tests. |
+
+The server tests use Node's built-in runner. `npm test` in `server/` compiles with `tsc` and runs `node --test` on `dist/__tests__`. They cover token handling and the `protect` middleware, phone normalisation, request validation and CORS. They do not need a database.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs install, typecheck, build and the server tests for both packages on every push.
+
+## Conventions
+
+- Screens are default exports in `client/src/screens`, registered with `lazy()` in `App.tsx`.
+- Colours, fonts and radii are tokens in `client/src/index.css`. Components use the semantic names (`bg-surface`, `text-ink-soft`) so light and dark both work. Avoid raw hex values in components.
+- Shared UI goes in `components/ui`. Icons are re-exported from `components/ui/icons.tsx` (Lucide), so swapping the set is a one-file change.
+- Server routes are plural kebab-case nouns. Controllers throw `HttpError` and never write their own 500 responses.
+
+### Add a screen
+
+1. Create `client/src/screens/YourScreen.tsx` with a default export.
+2. Add `const YourScreen = lazy(() => import('./screens/YourScreen'))` and a `<Route>` in `client/src/App.tsx`. Put it under `AppShell` if it should have the navigation, or beside `account` if it should be full screen.
+3. Link to it with `NavLink` or `useNavigate`.
+
+### Add an endpoint
+
+1. Add a controller in `server/src/controllers`. Use `req.user!._id` for anything owned by the user.
+2. Add the route in `server/src/routes` with a validation chain ending in `validateRequest`, and wrap the controller in `asyncHandler`.
+3. Mount new route files in `server/src/app.ts`.
+4. Add a test in `server/src/__tests__` if the validation or auth behaviour is worth pinning.
+
+## Deployment
+
+The live setup uses free tiers.
+
+- Client on Vercel with `client` as the root directory. `client/vercel.json` rewrites every path to `index.html` so deep links like `/history` work after a refresh. Set `VITE_API_URL`, `VITE_MAPPLS_MAP_SDK_KEY` and `VITE_MAPPLS_REST_API_KEY` in the project settings.
+- Server on Render as a Node web service with `server` as the root directory. Build command `npm install && npm run build`, start command `npm start`. `typescript` and the `@types/*` packages are regular dependencies so the build works when Render skips dev dependencies. Set `MONGO_URI`, `JWT_SECRET`, `ALLOWED_ORIGINS` (the Vercel URL) and `GEMINI_API_KEY`.
+- MongoDB on an Atlas free cluster. Allow Render's outbound addresses, or `0.0.0.0/0` if you accept that trade-off on a hobby project.
+
+The Render free tier sleeps when idle, so the first request after a quiet period can take close to a minute.
+
+## Troubleshooting
+
+### Missing required environment variables on server start
+
+Copy `server/.env.example` to `server/.env` and fill in `MONGO_URI` and `JWT_SECRET`.
+
+### Browser shows a CORS error
+
+The client origin is not in `ALLOWED_ORIGINS`. Include the scheme and port, for example `http://localhost:5173`.
+
+### Sakha says it is not configured
+
+Set `GEMINI_API_KEY` on the server and restart it.
+
+### Suggestions are empty
+
+`VITE_MAPPLS_REST_API_KEY` is missing or restricted to other domains. Restart `vite` after changing env files.
+
+### The map area shows an error
+
+`VITE_MAPPLS_MAP_SDK_KEY` is missing or the SDK could not load.
+

@@ -1,195 +1,150 @@
-# TripSync System Architecture Guide
+# Architecture
 
-This document describes the high-level and low-level system design, frontend state layout, backend controllers, database schema, API reference endpoints, and sequence diagrams of TripSync.
-
----
-
-## 1. High-Level Design (HLD)
-
-TripSync operates on a decoupled client-server architecture.
+TripSync is a React single-page app talking to an Express API backed by MongoDB. Maps and place search come straight from Mappls in the browser. Sakha, the chat assistant, goes through the API so the Gemini key stays on the server.
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                      CLIENT TIER                       │
-│  - React 19 SPA (Vite compiled static assets)          │
-│  - Tailwind CSS v4 local PostCSS compilation           │
-│  - Mappls Web Map JS SDK Loader                        │
-│  - Google Gen AI client chat SDK                       │
-└───────────────────────────┬────────────────────────────┘
-                            │ HTTPS / JSON Envelopes
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                    APPLICATION TIER                    │
-│  - Node/Express REST API Server                        │
-│  - Security: Helmet, Rate limiters, CORS filters       │
-│  - Validation: express-validator input verification    │
-└───────────────────────────┬────────────────────────────┘
-                            │ Mongoose ODM
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                     DATABASE TIER                      │
-│  - MongoDB Instance (user accounts, saved routes,      │
-│    and trip history logs)                              │
-└────────────────────────────────────────────────────────┘
+Browser (React, Vite build, hosted on Vercel)
+  |-- Mappls Web SDK         map canvas on the navigation screen
+  |-- Mappls REST            place search, geocoding, directions
+  |-- TripSync API           /api/auth, /api/trips, /api/saved-routes, /api/sakha
+                               |-- MongoDB (Atlas)
+                               |-- Gemini (Google AI Studio), Sakha only
 ```
 
----
+## Client
 
-## 2. Frontend State & Navigation Architecture
+`client/src` is organised by role.
 
-To prevent cascading parent re-renders, the React global state is split into domain-specific contexts. Backwards compatibility is preserved using an aggregator pattern in `AppContext.tsx`.
+| Folder | What lives there |
+|--------|------------------|
+| `screens/` | One file per page. Every screen is loaded with `React.lazy`, so the login page does not download the map code. |
+| `components/ui/` | Small shared pieces: `Sheet` (modal), `PlaceInput` (autosuggest combobox), `Plate`, `RouteLine`, `Notice`, `RoadArt`, icons. |
+| `components/layout/` | `AppShell` (side rail on desktop, tab bar on phones) and `AuthLayout`. |
+| `contexts/` | Four providers: `Auth`, `Trip`, `Navigation`, `UI`. Composed in `AppProvider`. |
+| `services/` | `api.ts` (axios instance), `mapService.ts` (Mappls REST wrappers), `aiService.ts` (Sakha), `location.ts` (browser geolocation). |
+| `hooks/` | `usePlaceSuggestions`, `useSpeechToText`, `useMapplsLoader`, `useStartTrip`. |
 
-```mermaid
-graph TD
-    subgraph Context Provider Layer
-        A[AppProvider] --> B[AuthProvider]
-        A --> C[TripProvider]
-        A --> D[NavigationProvider]
-        A --> E[UIProvider]
-    end
+### Routes
 
-    subgraph Screen / View Layer
-        B --> F[HomeScreen / AccountScreen]
-        C --> G[PlannerScreen / HistoryScreen]
-        D --> H[NavigationScreen / SakhaScreen]
-        E --> I[MainScreen / Modals / Theme Toggle]
-    end
-```
+| Path | Screen | Access |
+|------|--------|--------|
+| `/login`, `/signup` | Sign in, step 1 of sign-up | signed-out only |
+| `/profile/setup-1`, `/profile/setup-2` | Sign-up steps 2 and 3 | needs the credentials from step 1 in memory |
+| `/` | Home | signed in |
+| `/sakha`, `/planner`, `/saved`, `/history` | The four tabs inside the app shell | signed in |
+| `/account` | Profile, theme, vehicles | signed in |
+| `/navigation` | Live map | signed in, needs a trip in `NavigationContext` |
 
-### Context Breakdown
-* **`AuthProvider`:** Session states (`user`, `isLoading`), register/login API calls, profile onboarding flow, and user vehicle fleet settings.
-* **`TripProvider`:** Synchronizes saved routes and completed trip histories with API databases.
-* **`NavigationProvider`:** Manages turn-by-turn states, waypoint stops, starting/ending coordinate selections.
-* **`UIProvider`:** Controls global theme settings, tab selections, and modal states.
-* **Geocoding & Routing Engine:** Acts as an adapter communicating directly with Mappls REST API endpoints (Suggest, Geocode, Advanced Route, Nearby search).
+### State
 
----
+- `AuthContext` holds the session. The user and JWT are stored in `localStorage` under `tripsync-user`. Sign-up is three screens, and the password lives in a ref between steps 1 and 3, never in storage.
+- `TripContext` holds trip history and saved routes. It loads from the API and keeps a copy in `localStorage` as an offline fallback.
+- `NavigationContext` holds the origin, destination, mode, vehicle and traveller count for the trip being started or driven.
+- `UIContext` holds the theme and which of the two trip-setup sheets is open.
+- `services/api.ts` adds the bearer token to requests. When the server answers 401 to a request that carried a token, it fires an event and `AuthContext` signs the user out.
 
-## 3. Database Schema & Models
+### Starting a trip
 
-TripSync utilizes Mongoose schemas mapping structure to MongoDB documents.
+Every entry point (Sakha chat card, quick route form, saved route, history, home) calls `useStartTrip(from, to)`. That stores the places and opens the travel-mode sheet. Cars and bikes continue to a vehicle and traveller sheet, then `NavigationContext.startNavigation` moves to `/navigation`. Ending the trip there writes a history entry through `TripContext.addTrip`.
+
+### Navigation screen
+
+`getDirections` calls the Mappls route API and returns a plain `RouteResult` (distance, duration, decoded path, steps). The screen draws the path with the Mappls SDK, watches `navigator.geolocation`, and moves to the next instruction when the device is within 40 m of the next manoeuvre. Distance and drive time are the route estimate at the time it was fetched, not a live countdown.
+
+## Server
+
+`server/src`
+
+| Folder | What lives there |
+|--------|------------------|
+| `app.ts` | Builds the Express app (helmet, CORS, rate limit, routes, error handler). Importable without listening, which the tests rely on. |
+| `index.ts` | Reads `.env`, checks required variables, connects to MongoDB, listens. |
+| `routes/` | Route tables with `express-validator` chains. |
+| `controllers/` | Handlers. They throw `HttpError`; `asyncHandler` passes rejections to the error handler. |
+| `middleware/` | `protect` (JWT), `validateRequest`, `errorHandler`. |
+| `models/` | Mongoose schemas. |
+| `utils/` | Token signing and phone normalisation. |
+
+### Data model
 
 ```mermaid
 erDiagram
+    User ||--o{ Trip : has
+    User ||--o{ SavedRoute : has
     User {
-        ObjectId _id PK
-        String name
-        String phone UK
-        String password
+        ObjectId _id
+        string name
+        string phone "unique, stored as +91 XXXXXXXXXX"
+        string password "bcrypt hash"
         Vehicle[] twoWheelers
         Vehicle[] fourWheelers
-        Date createdAt
     }
-
     Trip {
-        ObjectId _id PK
-        ObjectId userId FK
-        String origin
-        String destination
-        Date startDate
-        String startTime
-        String vehicle
-        Number travelers
-        String status
+        ObjectId userId "indexed"
+        string origin
+        string destination
+        date startDate
+        string startTime
+        string vehicle
+        number travelers
+        string mode "4W, 2W, train or walking"
+        string duration "route estimate, display text"
         Stop[] stops
     }
-
     SavedRoute {
-        ObjectId _id PK
-        ObjectId userId FK
-        String origin
-        String destination
-        String stay
+        ObjectId userId "indexed"
+        string origin
+        string destination
+        string stay "optional"
     }
-
-    User ||--o{ Trip : creates
-    User ||--o{ SavedRoute : saves
 ```
 
-* **Indexing:** 
-  * `User.phone` (Unique index): Speeds up login checks.
-  * `Trip.userId` (Index): Speeds up fetching trip history.
-  * `SavedRoute.userId` (Index): Speeds up retrieving saved places.
-* **Mongoose Hooks:** `User` schema encrypts passwords using a pre-save hook using `bcryptjs` with 10 salt rounds.
+A vehicle is `{ id, regNumber }`. A stop is `{ name, location: { lat, lng }, stopover }`.
 
----
+### API
 
-## 4. API Reference Endpoints
+All paths start with `/api`. Errors come back as `{ success: false, message, errors? }`; validation errors list each field in `errors`. Protected routes need `Authorization: Bearer <token>`.
 
-API routes are prefixed with `/api`. All JSON responses follow consistent payload envelopes.
+| Method and path | Auth | Purpose |
+|-----------------|------|---------|
+| `POST /auth/signup` | no | Create an account. Body: `name`, `phone`, `password`, optional `twoWheelers`, `fourWheelers`. Returns the user and a token (201). 409 if the phone is registered. |
+| `POST /auth/login` | no | Body: `phone`, `password`. Returns the user and a token. |
+| `PATCH /auth/profile` | yes | Update `name`, `twoWheelers`, `fourWheelers`. Returns the user. |
+| `GET /trips` | yes | The caller's trips, newest first. |
+| `POST /trips` | yes | Log a trip. |
+| `PUT /trips/:id` | yes | Replace a trip's fields. 404 if it is not the caller's. |
+| `DELETE /trips/:id` | yes | Delete one trip. |
+| `DELETE /trips` | yes | Delete all of the caller's trips. |
+| `GET /saved-routes` | yes | The caller's saved routes. |
+| `POST /saved-routes` | yes | Body: `origin`, `destination`, optional `stay`. |
+| `DELETE /saved-routes/:id` | yes | Delete one. |
+| `POST /sakha` | yes | Body: `message` (up to 2000 characters), optional `history` (up to 40 turns of `{ role, text }`). Returns `{ text, navigationIntent }`. 503 if `GEMINI_API_KEY` is not set. |
+| `GET /health` | no | Liveness check (not under `/api`). |
 
-### Authentication Endpoints
+### Security notes
 
-* **POST `/api/auth/signup`:** Registers new user.
-  * *Request Body:* `{ name, phone, password, twoWheelers: [], fourWheelers: [] }`
-  * *Response (201 Created):* `{ _id, name, phone, twoWheelers, fourWheelers, token }`
-* **POST `/api/auth/login`:** Validates user credentials.
-  * *Request Body:* `{ phone, password }`
-  * *Response (200 OK):* `{ _id, name, phone, token }`
+- Passwords are hashed with bcrypt (10 rounds). Signup requires 8 to 72 characters with upper, lower, digit and symbol.
+- Tokens are HS256 JWTs valid for 30 days. The server refuses to start without `JWT_SECRET`; there is no fallback secret.
+- `protect` rejects a missing, malformed, expired or bad token, and a token whose user no longer exists.
+- Every query on trips and saved routes is scoped to the signed-in user, and update handlers copy a fixed list of fields from the body rather than the whole body.
+- Validators insist on strings, so `{ "$gt": "" }` style bodies are rejected before they reach Mongo.
+- Rate limits: 300 requests per 15 minutes per client for the API, 10 failed sign-in or sign-up attempts per 15 minutes, 12 Sakha messages per minute per user. `trust proxy` is set to 1 so limits count real clients behind Render.
+- CORS only allows the origins in `ALLOWED_ORIGINS`. JSON bodies are capped at 100 KB.
 
-### Trip Logs Endpoints (Protected - JWT Required)
-
-* **POST `/api/trips`:** Saves a trip log.
-  * *Request Body:* `{ origin, destination, startDate, startTime, vehicle, travelers, stops: [] }`
-  * *Response (210 Created):* Saved Trip Document object.
-* **GET `/api/trips`:** Retrieves current user's history logs.
-* **DELETE `/api/trips/:id`:** Removes a specific trip log.
-
-### Saved Routes Endpoints (Protected - JWT Required)
-
-* **POST `/api/saved-routes`:** Saves a planned route.
-  * *Request Body:* `{ origin, destination, stay }`
-* **GET `/api/saved-routes`:** Retrieves saved routes.
-* **DELETE `/api/saved-routes/:id`:** Removes a saved route.
-
----
-
-## 5. Sequence Diagrams
-
-### Sakha AI Co-pilot Chat Flow
+### Sakha flow
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant FE as React Client (SakhaScreen)
-    participant AISvc as aiService (Gemini Wrapper)
-    participant SDK as Google Gen AI SDK
-    participant API as Gemini API Server
-
-    User->>FE: Input text prompt ("Navigate Mumbai to Pune")
-    FE->>FE: Display message bubble in Chat
-    FE->>AISvc: sendMessageToSakha(message, chatHistory)
-    AISvc->>SDK: Generate content request
-    SDK->>API: Generate request (gemini-2.5-flash)
-    API-->>SDK: Return generated response text
-    SDK-->>AISvc: Return text with intent tag [NAVIGATE: Mumbai | Pune]
-    AISvc->>AISvc: Parse navigation tag, extract origin & destination
-    AISvc-->>FE: Return clean text + navigationIntent object
-    FE->>FE: Update message history state
-    FE-->>User: Render Sakha chat bubble & Floating Navigation Trigger Card
+    participant App as SakhaScreen
+    participant API as POST /api/sakha
+    participant Gemini
+    User->>App: "Plan Pune to Mahabaleshwar"
+    App->>API: message + earlier turns (JWT)
+    API->>Gemini: system prompt + turns
+    Gemini-->>API: reply ending in [NAVIGATE: Pune | Mahabaleshwar]
+    API-->>App: { text, navigationIntent }
+    App-->>User: reply and a "Start navigation" card
 ```
 
-### Live Map Waypoint Addition Flow
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant FE as React Client (NavigationScreen)
-    participant GPS as Geolocation API
-    participant MapSvc as mapService
-    participant MapSDK as Mappls Map JS SDK
-    
-    User->>FE: Click "Add Stop" -> Select "Gas Station"
-    FE->>GPS: Request getCurrentPosition()
-    GPS-->>FE: Return user latitude and longitude
-    FE->>MapSvc: searchNearbyPlaces("gas station", userCoords)
-    MapSvc-->>FE: Return gas stations array
-    FE-->>User: Render Stops List Modal
-    
-    User->>FE: Select Gas Station
-    FE->>FE: Append waypoint to route stops list
-    FE->>MapSvc: getDirections(origin, destination, waypoints)
-    MapSvc-->>FE: Return updated directions result
-    FE->>MapSDK: Update directions overlay polyline
-    MapSDK-->>User: Render updated route path on screen
-```
+The system prompt asks Gemini to end a reply with `[NAVIGATE: Origin | Destination]` when the user wants a route. The server strips the tag and returns it as `navigationIntent`.
