@@ -1,194 +1,107 @@
-import React, { useState } from "react";
-import { useAppContext } from "../contexts/AppContext";
-import { Trip } from "../types";
-import {
-  HistoryIcon,
-  TrashIcon,
-  CarIcon,
-  BikeIcon,
-  TrainIcon,
-  WalkingIcon,
-  PlacesIcon,
-} from "../constants";
-import { TabScreenHeader } from "../components/common/TabScreenHeader";
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useTrips } from '../contexts/TripContext';
+import { useStartTrip } from '../hooks/useStartTrip';
+import type { Trip } from '../types';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { RouteLine } from '../components/ui/RouteLine';
+import { Plate } from '../components/ui/Plate';
+import { Sheet } from '../components/ui/Sheet';
+import { HistoryIcon, TrashIcon, NavigateIcon, PeopleIcon, PinIcon, CarIcon, BikeIcon, TrainIcon, WalkIcon } from '../components/ui/icons';
 
-export const HistoryScreen = () => {
-  const { trips, startNavigationFrom, removeTrip, clearTrips } =
-    useAppContext();
-  const [showConfirm, setShowConfirm] = useState(false);
+const MODE_ICON = { '4W': CarIcon, '2W': BikeIcon, train: TrainIcon, walking: WalkIcon } as const;
 
-  const handleNavigate = (trip: Trip) => {
-    startNavigationFrom(trip.from, trip.to);
-  };
-
-  const handleDeleteAll = () => {
-    clearTrips();
-    setShowConfirm(false);
-  };
-
-  const DetailItem = ({
-    icon: Icon,
-    value,
-  }: {
-    icon: React.ElementType;
-    value: string | number;
-  }) => (
-    <div className="flex items-center text-[10px] font-bold uppercase tracking-wider bg-slate-800 border border-slate-700/40 py-1 px-2.5 rounded-md text-slate-350">
-      <Icon className="w-3.5 h-3.5 text-cyan-400 mr-1.5 flex-shrink-0" />
-      <span>{value}</span>
-    </div>
-  );
-
-  const ModeIcon = ({ mode }: { mode: Trip["mode"] }) => {
-    switch (mode) {
-      case "4W":
-        return CarIcon;
-      case "2W":
-        return BikeIcon;
-      case "train":
-        return TrainIcon;
-      case "walking":
-        return WalkingIcon;
-      default:
-        return CarIcon;
-    }
-  };
-
-  const TravelersIcon = ({ className = "w-6 h-6" }) => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.284-1.255-.778-1.682M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.284-1.255.778-1.682M12 15a4 4 0 100-8 4 4 0 000 8z"
-      />
-    </svg>
-  );
-
-  if (showConfirm) {
-    return (
-      <div className="overlay animate-fade-in">
-        <div className="modal text-center space-y-4 max-w-sm">
-          <h2 className="text-base font-bold text-white">
-            Clear Trip History?
-          </h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            This will permanently delete all your trip history logs. This action
-            cannot be undone.
-          </p>
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={() => setShowConfirm(false)}
-              className="flex-1 btn btn-secondary text-xs py-2 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDeleteAll}
-              className="flex-1 btn btn-danger text-xs py-2 cursor-pointer"
-            >
-              Delete All
-            </button>
-          </div>
-        </div>
+function TripItem({ trip, onRepeat, onRemove }: { trip: Trip; onRepeat: () => void; onRemove: () => void }) {
+  const ModeIcon = MODE_ICON[trip.mode] ?? CarIcon;
+  return (
+    <li className="py-5">
+      <p className="t-meta mb-2">
+        {trip.date}
+        {trip.duration ? `, route estimate ${trip.duration}` : ''}
+      </p>
+      <RouteLine from={trip.from} to={trip.to} />
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-soft">
+        {trip.vehicleNumber ? <Plate reg={trip.vehicleNumber} /> : <ModeIcon className="size-5" aria-label={trip.mode} />}
+        <span className="inline-flex items-center gap-1.5">
+          <PeopleIcon className="size-4" aria-hidden="true" />
+          {trip.travelers} traveller{trip.travelers === 1 ? '' : 's'}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <PinIcon className="size-4" aria-hidden="true" />
+          {trip.stops} stop{trip.stops === 1 ? '' : 's'}
+        </span>
       </div>
-    );
-  }
+      <div className="mt-4 flex items-center gap-2">
+        <button type="button" className="btn btn-outline btn-sm" onClick={onRepeat}>
+          <NavigateIcon className="size-4" aria-hidden="true" />
+          Drive it again
+        </button>
+        <button
+          type="button"
+          className="icon-btn icon-btn-danger ml-auto"
+          onClick={onRemove}
+          aria-label={`Delete trip from ${trip.from} to ${trip.to}`}
+        >
+          <TrashIcon className="size-5" />
+        </button>
+      </div>
+    </li>
+  );
+}
 
-  if (trips.length === 0) {
-    return (
-      <>
-        <TabScreenHeader title="Trip History" />
-        <div className="p-6 text-text text-center mt-12 max-w-sm md:max-w-4xl w-full mx-auto animate-fade-in">
-          <div className="w-16 h-16 mx-auto bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center mb-4 shadow-inner">
-            <HistoryIcon isActive={false} className="w-6 h-6 text-slate-500" />
-          </div>
-          <h2 className="text-base font-bold text-white">
-            No trip history yet
-          </h2>
-          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-            Completed driving trips from Sakha navigation will be recorded here.
-          </p>
-        </div>
-      </>
-    );
-  }
+export default function HistoryScreen() {
+  const { trips, removeTrip, clearTrips } = useTrips();
+  const startTrip = useStartTrip();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
-    <>
-      <TabScreenHeader title="Trip History" />
-      <div className="p-6 text-text max-w-sm md:max-w-4xl w-full mx-auto space-y-4 animate-fade-in">
-        <div className="flex justify-between items-center text-xs">
-          <p className="text-slate-500">
-            {trips.length} trip{trips.length > 1 ? "s" : ""} recorded
-          </p>
+    <div className="mx-auto w-full max-w-3xl px-4 pb-10 pt-4 sm:px-8 sm:pt-8">
+      <PageHeader
+        title="Trip history"
+        action={
+          trips.length > 0 ? (
+            <button type="button" className="btn btn-quiet btn-sm text-danger" onClick={() => setConfirmOpen(true)}>
+              Clear all
+            </button>
+          ) : undefined
+        }
+      >
+        {trips.length > 0 ? `${trips.length} trip${trips.length === 1 ? '' : 's'} logged.` : undefined}
+      </PageHeader>
+
+      {trips.length === 0 ? (
+        <EmptyState
+          icon={HistoryIcon}
+          title="No trips logged yet"
+          action={<Link to="/sakha" state={{ tab: 'route' }} className="btn btn-primary">Start a trip</Link>}
+        >
+          When you end a trip on the map screen, it is added here with the route, vehicle and number of travellers.
+        </EmptyState>
+      ) : (
+        <ul className="rows">
+          {trips.map((trip) => (
+            <TripItem key={trip.id} trip={trip} onRepeat={() => startTrip(trip.from, trip.to)} onRemove={() => removeTrip(trip.id)} />
+          ))}
+        </ul>
+      )}
+
+      <Sheet open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Clear trip history?">
+        <p className="mb-5 text-ink-soft">This deletes all {trips.length} logged trips. It cannot be undone.</p>
+        <div className="flex gap-3 pb-1">
+          <button type="button" className="btn btn-outline flex-1" onClick={() => setConfirmOpen(false)}>Keep them</button>
           <button
-            onClick={() => setShowConfirm(true)}
-            className="text-rose-500 hover:text-rose-400 font-bold transition-colors cursor-pointer"
+            type="button"
+            className="btn btn-danger flex-1"
+            onClick={() => {
+              clearTrips();
+              setConfirmOpen(false);
+            }}
           >
-            Delete All
+            Delete all
           </button>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {trips.map((trip, index) => (
-            <div
-              key={trip.id}
-              className="card bg-slate-900 border border-slate-800 p-5 shadow-sm space-y-4"
-            >
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">{`Trip Log #${trips.length - index}`}</span>
-                  <h3 className="text-sm font-bold text-white leading-tight">
-                    {trip.from} to {trip.to}
-                  </h3>
-                  <p className="text-[10px] text-slate-500 font-medium">
-                    {trip.date}
-                  </p>
-                </div>
-                <button
-                  onClick={() => removeTrip(trip.id)}
-                  className="text-slate-500 hover:text-rose-400 transition-colors p-1 cursor-pointer"
-                  aria-label="Remove trip log"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex flex-wrap gap-2">
-                <DetailItem
-                  icon={ModeIcon({ mode: trip.mode })}
-                  value={trip.vehicleNumber || trip.mode}
-                />
-                <DetailItem
-                  icon={TravelersIcon}
-                  value={`${trip.travelers} Pax`}
-                />
-                <DetailItem
-                  icon={(props: any) => (
-                    <PlacesIcon isActive={true} {...props} />
-                  )}
-                  value={`${trip.stops} Stop${trip.stops > 1 ? "s" : ""}`}
-                />
-                <DetailItem icon={HistoryIcon} value={trip.duration} />
-              </div>
-
-              <button
-                onClick={() => handleNavigate(trip)}
-                className="btn btn-primary btn-full py-2 text-xs font-bold uppercase tracking-wider mt-2 cursor-pointer"
-              >
-                Re-Navigate
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
+      </Sheet>
+    </div>
   );
-};
+}

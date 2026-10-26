@@ -1,204 +1,185 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppContext } from '../contexts/AppContext';
-import { UserProfile, Vehicle } from '../types';
-import { ArrowLeftIcon, CarIcon, TrashIcon, BikeIcon } from '../constants';
+import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useUI } from '../contexts/UIContext';
+import type { UserProfile, Vehicle } from '../types';
+import { Notice } from '../components/ui/Notice';
+import { Plate } from '../components/ui/Plate';
+import { ArrowLeftIcon, CarIcon, BikeIcon, TrashIcon, PlusIcon, SunIcon, MoonIcon, LogoutIcon } from '../components/ui/icons';
 
-export const AccountScreen = () => {
-    const { user, setUser, theme, setTheme, handleLogout } = useAppContext();
-    const navigate = useNavigate();
-    
-    const [draftUser, setDraftUser] = useState<UserProfile | null>(user ? JSON.parse(JSON.stringify(user)) : null);
-    const [newVehicle, setNewVehicle] = useState({ type: 'fourWheelers', reg: '' });
+type Kind = 'twoWheelers' | 'fourWheelers';
+type Draft = Pick<UserProfile, 'name' | 'twoWheelers' | 'fourWheelers'>;
 
-    if (!draftUser) return null;
+const KINDS: { key: Kind; label: string; icon: typeof CarIcon }[] = [
+  { key: 'fourWheelers', label: 'Cars', icon: CarIcon },
+  { key: 'twoWheelers', label: 'Bikes and scooters', icon: BikeIcon },
+];
 
-    const handleSaveChanges = () => {
-        setUser(draftUser);
-        navigate('/');
-    };
+export default function AccountScreen() {
+  const { user, saveProfile, handleLogout } = useAuth();
+  const { theme, setTheme } = useUI();
 
-    const handleAddVehicle = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (newVehicle.reg) {
-            const vehicle: Vehicle = { id: String(Date.now()), regNumber: newVehicle.reg.toUpperCase() };
-            const type = newVehicle.type as 'twoWheelers' | 'fourWheelers';
-            setDraftUser(prev => prev ? { ...prev, [type]: [...prev[type], vehicle] } : null);
-            setNewVehicle({ type: 'fourWheelers', reg: '' });
-        }
-    };
+  const [draft, setDraft] = useState<Draft>(() => ({
+    name: user?.name ?? '',
+    twoWheelers: user?.twoWheelers.map((v) => ({ ...v })) ?? [],
+    fourWheelers: user?.fourWheelers.map((v) => ({ ...v })) ?? [],
+  }));
+  const [newKind, setNewKind] = useState<Kind>('fourWheelers');
+  const [newReg, setNewReg] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
-    const handleRemoveVehicle = (type: 'twoWheelers' | 'fourWheelers', id: string) => {
-        setDraftUser(prev => prev ? { ...prev, [type]: prev[type].filter(v => v.id !== id) } : null);
-    };
+  if (!user) return null;
 
-    const handleRegNumberChange = (type: 'twoWheelers' | 'fourWheelers', id: string, newRegNumber: string) => {
-        setDraftUser(prev => {
-            if (!prev) return null;
-            const updatedVehicles = prev[type].map(vehicle =>
-                vehicle.id === id ? { ...vehicle, regNumber: newRegNumber.toUpperCase() } : vehicle
-            );
-            return { ...prev, [type]: updatedVehicles };
-        });
-    };
+  const dirty = JSON.stringify(draft) !== JSON.stringify({ name: user.name, twoWheelers: user.twoWheelers, fourWheelers: user.fourWheelers });
 
-    return (
-        <div className="h-screen text-text flex flex-col bg-background relative overflow-hidden">
-            {/* Ambient background glow */}
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"></div>
+  const edit = (next: Partial<Draft>) => {
+    setStatus(null);
+    setDraft((d) => ({ ...d, ...next }));
+  };
 
-            <header className="flex items-center p-4 border-b border-border-default flex-shrink-0 bg-surface/60 backdrop-blur-md sticky top-0 z-20">
-                <button 
-                    onClick={() => navigate('/')} 
-                    className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer" 
-                    aria-label="Go back to home"
-                >
-                    <ArrowLeftIcon className="h-4 w-4" />
-                </button>
-                <h1 className="text-base font-bold ml-4 text-white">Account Settings</h1>
-            </header>
+  const addVehicle = (event: FormEvent) => {
+    event.preventDefault();
+    const regNumber = newReg.trim().toUpperCase();
+    if (!regNumber) return;
+    const vehicle: Vehicle = { id: `${newKind === 'twoWheelers' ? 'tw' : 'fw'}-${Date.now()}`, regNumber };
+    edit({ [newKind]: [...draft[newKind], vehicle] });
+    setNewReg('');
+  };
 
-            <div className="flex-grow overflow-y-auto p-6 max-w-sm md:max-w-4xl w-full mx-auto space-y-8 animate-fade-in relative z-10">
-                {/* Profile Details */}
-                <div className="card bg-slate-900 border border-slate-800 space-y-4">
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Full Name</label>
-                        <input
-                            value={draftUser.name}
-                            onChange={e => setDraftUser({ ...draftUser, name: e.target.value })}
-                            className="input"
-                            placeholder="Full name"
-                        />
-                    </div>
-                    <div className="pt-2 border-t border-slate-800/60 flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-semibold uppercase tracking-wider">Registered Phone</span>
-                        <span className="text-slate-200 font-bold">{draftUser.phone}</span>
-                    </div>
-                </div>
+  const save = async () => {
+    const name = draft.name.trim();
+    if (name.length < 2 || !/^[a-zA-Z\s]+$/.test(name)) {
+      setStatus({ ok: false, text: 'Use at least 2 letters for your name. Numbers and symbols are not allowed.' });
+      return;
+    }
+    if ([...draft.twoWheelers, ...draft.fourWheelers].some((v) => !v.regNumber.trim())) {
+      setStatus({ ok: false, text: 'Fill in every registration number, or remove the empty ones.' });
+      return;
+    }
+    setSaving(true);
+    const result = await saveProfile({ ...draft, name });
+    setSaving(false);
+    setStatus(result.success ? { ok: true, text: 'Saved.' } : { ok: false, text: result.message ?? 'Could not save your changes.' });
+  };
 
-                {/* Appearance Settings */}
-                <div className="space-y-3">
-                    <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Appearance</h2>
-                    <div className="card bg-slate-900 border border-slate-800 p-4 flex justify-between items-center shadow-sm">
-                        <span className="text-sm font-semibold text-slate-200">Dark Theme</span>
-                        <button
-                            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                            className={`relative w-10 h-6 rounded-full flex items-center transition-colors cursor-pointer ${theme === 'dark' ? 'bg-cyan-500' : 'bg-slate-850 border border-slate-700'}`}
-                            role="switch"
-                            aria-checked={theme === 'dark'}
-                            aria-label="Toggle dark mode"
-                        >
-                            <span className={`w-4 h-4 bg-slate-950 rounded-full shadow transform transition-transform absolute ${theme === 'dark' ? 'translate-x-5' : 'translate-x-1'}`}></span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Registered Vehicles */}
-                <div className="space-y-6">
-                    <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">My Registered Vehicles</h2>
-
-                    {/* 4W List */}
-                    <div className="space-y-3">
-                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Four-wheelers ({draftUser.fourWheelers.length})</h3>
-                        {draftUser.fourWheelers.length === 0 ? (
-                            <p className="text-xs text-slate-500 italic">No four-wheelers registered</p>
-                        ) : (
-                            <div className="space-y-2">
-                                {draftUser.fourWheelers.map(v => (
-                                    <div key={v.id} className="flex justify-between items-center bg-slate-900 border border-slate-850 p-3 rounded-lg hover:border-slate-700 transition-colors">
-                                        <div className="flex items-center flex-grow mr-2">
-                                            <CarIcon className="w-4 h-4 mr-3 text-cyan-400 flex-shrink-0" />
-                                            <input
-                                                type="text"
-                                                placeholder="Add Reg. No."
-                                                value={v.regNumber}
-                                                onChange={(e) => handleRegNumberChange('fourWheelers', v.id, e.target.value)}
-                                                className="font-bold text-white bg-transparent focus:outline-none placeholder-slate-700 w-full text-xs uppercase"
-                                            />
-                                        </div>
-                                        <button 
-                                            onClick={() => handleRemoveVehicle('fourWheelers', v.id)} 
-                                            className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                                            aria-label="Remove vehicle"
-                                        >
-                                            <TrashIcon className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* 2W List */}
-                    <div className="space-y-3">
-                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Two-wheelers ({draftUser.twoWheelers.length})</h3>
-                        {draftUser.twoWheelers.length === 0 ? (
-                            <p className="text-xs text-slate-500 italic">No two-wheelers registered</p>
-                        ) : (
-                            <div className="space-y-2">
-                                {draftUser.twoWheelers.map(v => (
-                                    <div key={v.id} className="flex justify-between items-center bg-slate-900 border border-slate-850 p-3 rounded-lg hover:border-slate-700 transition-colors">
-                                        <div className="flex items-center flex-grow mr-2">
-                                            <BikeIcon className="w-4 h-4 mr-3 text-cyan-400 flex-shrink-0" />
-                                            <input
-                                                type="text"
-                                                placeholder="Add Reg. No."
-                                                value={v.regNumber}
-                                                onChange={(e) => handleRegNumberChange('twoWheelers', v.id, e.target.value)}
-                                                className="font-bold text-white bg-transparent focus:outline-none placeholder-slate-700 w-full text-xs uppercase"
-                                            />
-                                        </div>
-                                        <button 
-                                            onClick={() => handleRemoveVehicle('twoWheelers', v.id)} 
-                                            className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                                            aria-label="Remove vehicle"
-                                        >
-                                            <TrashIcon className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Add Vehicle Form */}
-                    <form onSubmit={handleAddVehicle} className="card bg-slate-900 border border-slate-800 p-4 space-y-3 shadow-inner">
-                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Add new vehicle</h3>
-                        <div className="flex gap-2">
-                            <select 
-                                value={newVehicle.type} 
-                                onChange={e => setNewVehicle(p => ({ ...p, type: e.target.value }))} 
-                                className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-xs font-semibold focus:outline-none focus:border-cyan-500 text-white cursor-pointer"
-                            >
-                                <option value="fourWheelers">4W</option>
-                                <option value="twoWheelers">2W</option>
-                            </select>
-                            <input
-                                value={newVehicle.reg}
-                                onChange={e => setNewVehicle(p => ({ ...p, reg: e.target.value.toUpperCase() }))}
-                                placeholder="MH 12 AB 1234"
-                                className="bg-slate-800 border border-slate-700 rounded-md px-3 py-2 flex-grow text-xs font-bold text-white focus:outline-none focus:border-cyan-500 placeholder-slate-600"
-                            />
-                            <button type="submit" className="btn btn-primary text-xs py-2 px-3 cursor-pointer">Add</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div className="flex-shrink-0 p-4 border-t border-border-default flex gap-4 bg-surface/60 backdrop-blur-md sticky bottom-0 z-20 safe-bottom">
-                <button
-                    onClick={handleLogout}
-                    className="flex-1 btn btn-danger cursor-pointer"
-                >
-                    Logout
-                </button>
-                <button
-                    onClick={handleSaveChanges}
-                    className="flex-1 btn btn-primary cursor-pointer"
-                >
-                    Save Changes
-                </button>
-            </div>
+  return (
+    <div className="flex min-h-dvh flex-col">
+      <header className="pt-safe border-b border-line bg-surface">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-2 py-2 sm:px-6">
+          <Link to="/" className="icon-btn" aria-label="Back to home">
+            <ArrowLeftIcon className="size-5" />
+          </Link>
+          <h1 className="t-heading text-xl">Account</h1>
         </div>
-    );
-};
+      </header>
+
+      <main className="mx-auto w-full max-w-2xl flex-1 space-y-10 px-4 pb-8 pt-8 sm:px-8">
+        <section aria-labelledby="acc-profile" className="space-y-4">
+          <h2 id="acc-profile" className="t-heading">Profile</h2>
+          <div>
+            <label htmlFor="acc-name" className="field-label">Full name</label>
+            <input id="acc-name" className="input" value={draft.name} onChange={(e) => edit({ name: e.target.value })} autoComplete="name" maxLength={50} />
+          </div>
+          <div>
+            <p className="field-label">Phone</p>
+            <p className="tnum text-ink-soft">{user.phone}</p>
+            <p className="field-hint">Your phone number is your login, so it cannot be changed here.</p>
+          </div>
+        </section>
+
+        <section aria-labelledby="acc-theme" className="space-y-3">
+          <h2 id="acc-theme" className="t-heading">Appearance</h2>
+          <div className="segmented max-w-xs">
+            <button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>
+              <span className="inline-flex items-center justify-center gap-2"><SunIcon className="size-4" aria-hidden="true" />Light</span>
+            </button>
+            <button type="button" aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}>
+              <span className="inline-flex items-center justify-center gap-2"><MoonIcon className="size-4" aria-hidden="true" />Dark</span>
+            </button>
+          </div>
+        </section>
+
+        <section aria-labelledby="acc-vehicles" className="space-y-6">
+          <h2 id="acc-vehicles" className="t-heading">Vehicles</h2>
+          {KINDS.map(({ key, label, icon: Icon }) => (
+            <div key={key}>
+              <h3 className="mb-1 flex items-center gap-2 font-semibold text-ink-soft">
+                <Icon className="size-4" aria-hidden="true" />
+                {label} ({draft[key].length})
+              </h3>
+              {draft[key].length === 0 ? (
+                <p className="py-2 text-ink-muted">None added.</p>
+              ) : (
+                <ul className="rows">
+                  {draft[key].map((v) => (
+                    <li key={v.id} className="flex items-center gap-2 py-2">
+                      <input
+                        className="input flex-1 font-semibold uppercase tracking-wide"
+                        value={v.regNumber}
+                        onChange={(e) => edit({ [key]: draft[key].map((x) => (x.id === v.id ? { ...x, regNumber: e.target.value.toUpperCase() } : x)) })}
+                        aria-label={`Registration number, ${label.toLowerCase()}`}
+                        maxLength={20}
+                      />
+                      <button
+                        type="button"
+                        className="icon-btn icon-btn-danger"
+                        onClick={() => edit({ [key]: draft[key].filter((x) => x.id !== v.id) })}
+                        aria-label={`Remove ${v.regNumber || 'vehicle'}`}
+                      >
+                        <TrashIcon className="size-5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+
+          <form onSubmit={addVehicle} className="space-y-3 rounded-[var(--radius-control)] border border-line bg-surface p-4">
+            <p className="font-semibold">Add a vehicle</p>
+            <div className="segmented" role="group" aria-label="Vehicle type">
+              <button type="button" aria-pressed={newKind === 'fourWheelers'} onClick={() => setNewKind('fourWheelers')}>Car</button>
+              <button type="button" aria-pressed={newKind === 'twoWheelers'} onClick={() => setNewKind('twoWheelers')}>Bike</button>
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="input flex-1 uppercase"
+                value={newReg}
+                onChange={(e) => setNewReg(e.target.value.toUpperCase())}
+                placeholder="MH 12 AB 1234"
+                aria-label="New registration number"
+                maxLength={20}
+              />
+              <button type="submit" className="btn btn-outline" disabled={!newReg.trim()}>
+                <PlusIcon className="size-4" aria-hidden="true" />
+                Add
+              </button>
+            </div>
+            {newReg.trim() && <Plate reg={newReg.trim()} />}
+          </form>
+        </section>
+
+        <section aria-labelledby="acc-session" className="border-t border-line pt-8">
+          <h2 id="acc-session" className="t-heading mb-3">Session</h2>
+          <button type="button" className="btn btn-danger" onClick={handleLogout}>
+            <LogoutIcon className="size-4" aria-hidden="true" />
+            Sign out
+          </button>
+        </section>
+      </main>
+
+      <div className="pb-safe sticky bottom-0 border-t border-line bg-surface">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-4 px-4 pt-3 sm:px-8">
+          <p className={`min-w-0 flex-1 text-sm ${status && !status.ok ? 'text-danger' : 'text-ink-muted'}`} role="status">
+            {status ? status.text : dirty ? 'You have unsaved changes.' : ''}
+          </p>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={!dirty || saving}>
+            {saving && <span className="spinner" aria-hidden="true" />}
+            Save changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

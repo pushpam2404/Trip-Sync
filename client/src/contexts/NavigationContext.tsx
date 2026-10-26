@@ -1,114 +1,64 @@
 /**
- * NavigationContext — Manages the state of live active navigation, turn-by-turn routing,
- * selected travel modes, current vehicle, and dynamic stops (waypoints).
+ * NavigationContext: the trip being set up or driven right now.
  */
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TravelMode, TripDetails, WaypointStop } from '../types';
+import type { TravelMode, TripDetails } from '../types';
 
 interface NavigationContextValue {
-  navigationOrigin: string | null;
-  navigationDestination: string | null;
-  setNavigationOrigin: (origin: string | null) => void;
-  setNavigationDestination: (dest: string | null) => void;
-  selectedMode: TravelMode | null;
-  selectedVehicleNumber: string | null;
+  origin: string;
+  destination: string;
+  setOrigin: (value: string) => void;
+  setDestination: (value: string) => void;
+  mode: TravelMode | null;
+  vehicleNumber: string | null;
   travelers: number;
-  isNavigating: boolean;
-  waypoints: WaypointStop[];
-  
-  startNavigationFrom: (origin: string, destination: string) => void;
-  prepareNavigation: (origin: string, destination: string, mode: TravelMode) => void;
+  /** Locks in the trip details and opens the live navigation screen. */
   startNavigation: (details: TripDetails) => void;
   endNavigation: () => void;
-  
-  addWaypoint: (stop: WaypointStop) => void;
-  removeWaypoint: (index: number) => void;
-  clearWaypoints: () => void;
-  setWaypoints: (stops: WaypointStop[]) => void;
 }
 
 const NavigationContext = createContext<NavigationContextValue | undefined>(undefined);
 
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [mode, setMode] = useState<TravelMode | null>(null);
+  const [vehicleNumber, setVehicleNumber] = useState<string | null>(null);
+  const [travelers, setTravelers] = useState(1);
 
-  const [navigationOrigin, setNavigationOrigin] = useState<string | null>(null);
-  const [navigationDestination, setNavigationDestination] = useState<string | null>(null);
-  const [selectedMode, setSelectedMode] = useState<TravelMode | null>(null);
-  const [selectedVehicleNumber, setSelectedVehicleNumber] = useState<string | null>(null);
-  const [travelers, setTravelers] = useState<number>(1);
-  const [isNavigating, setIsNavigating] = useState<boolean>(false);
-  const [waypoints, setWaypointsState] = useState<WaypointStop[]>([]);
-
-  const startNavigationFrom = useCallback((origin: string, destination: string) => {
-    setNavigationOrigin(origin);
-    setNavigationDestination(destination);
-    // Directs user to the setup dialog or screen
-    navigate('/navigation');
-  }, [navigate]);
-
-  const prepareNavigation = useCallback((origin: string, destination: string, mode: TravelMode) => {
-    setNavigationOrigin(origin);
-    setNavigationDestination(destination);
-    setSelectedMode(mode);
-  }, []);
-
-  const startNavigation = useCallback((details: TripDetails) => {
-    setNavigationOrigin(details.from);
-    setNavigationDestination(details.to);
-    setSelectedMode(details.mode);
-    setSelectedVehicleNumber(details.vehicleNumber || null);
-    setTravelers(details.travelers);
-    setIsNavigating(true);
-    navigate('/navigation/active');
-  }, [navigate]);
+  const startNavigation = useCallback(
+    (details: TripDetails) => {
+      setOrigin(details.from);
+      setDestination(details.to);
+      setMode(details.mode);
+      setVehicleNumber(details.vehicleNumber || null);
+      setTravelers(details.travelers);
+      navigate('/navigation');
+    },
+    [navigate],
+  );
 
   const endNavigation = useCallback(() => {
-    setIsNavigating(false);
-    setNavigationOrigin(null);
-    setNavigationDestination(null);
-    setSelectedMode(null);
-    setSelectedVehicleNumber(null);
+    setOrigin('');
+    setDestination('');
+    setMode(null);
+    setVehicleNumber(null);
     setTravelers(1);
-    setWaypointsState([]);
     navigate('/');
   }, [navigate]);
 
-  const addWaypoint = useCallback((stop: WaypointStop) => {
-    setWaypointsState(prev => [...prev, stop]);
-  }, []);
-
-  const removeWaypoint = useCallback((index: number) => {
-    setWaypointsState(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const clearWaypoints = useCallback(() => {
-    setWaypointsState([]);
-  }, []);
-
-  const setWaypoints = useCallback((stops: WaypointStop[]) => {
-    setWaypointsState(stops);
-  }, []);
-
   const value: NavigationContextValue = {
-    navigationOrigin,
-    navigationDestination,
-    setNavigationOrigin,
-    setNavigationDestination,
-    selectedMode,
-    selectedVehicleNumber,
+    origin,
+    destination,
+    setOrigin,
+    setDestination,
+    mode,
+    vehicleNumber,
     travelers,
-    isNavigating,
-    waypoints,
-    startNavigationFrom,
-    prepareNavigation,
     startNavigation,
     endNavigation,
-    addWaypoint,
-    removeWaypoint,
-    clearWaypoints,
-    setWaypoints,
   };
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
@@ -116,8 +66,6 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
 
 export function useNavigation() {
   const context = useContext(NavigationContext);
-  if (!context) {
-    throw new Error('useNavigation must be used within a NavigationProvider');
-  }
+  if (!context) throw new Error('useNavigation must be used within a NavigationProvider');
   return context;
 }

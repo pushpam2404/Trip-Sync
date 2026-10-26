@@ -1,9 +1,4 @@
-/**
- * TripSync — Shared Type Definitions
- * Central type hub for the entire frontend application.
- */
-
-// ─── Vehicle & User ───
+/** Shared types for the client. */
 
 export interface Vehicle {
   id: string;
@@ -29,23 +24,17 @@ export interface VehicleRegistrationData {
   fourWheelers: string[];
 }
 
-// ─── Trips ───
-
 export type TravelMode = '4W' | '2W' | 'train' | 'walking';
 
 export interface Trip {
   id: string;
-  tripName: string;
-  date: string;
-  duration: string;
   from: string;
-  fromSubtitle?: string;
-  startTime?: string;
-  distance?: number;
   to: string;
-  toSubtitle?: string;
-  endTime?: string;
-  vehicleNumber: string;
+  /** Formatted for display, e.g. "12 Mar 2026". */
+  date: string;
+  /** Route estimate from the directions API when the trip was ended. */
+  duration?: string;
+  vehicleNumber?: string;
   travelers: number;
   stops: number;
   mode: TravelMode;
@@ -59,58 +48,43 @@ export interface TripDetails {
   vehicleNumber?: string;
 }
 
-// ─── Navigation ───
-
 export interface SavedRoute {
   id: string;
   origin: string;
   destination: string;
-  stay: string;
-  travelTime: string;
-}
-
-export interface PlacePrediction {
-  description: string;
-  place_id: string;
-  structured_formatting: {
-    main_text: string;
-    secondary_text: string;
-  };
+  /** The stay this route starts from, when the route was saved from the planner. */
+  stay?: string;
 }
 
 export interface WaypointStop {
-  location: { lat: number; lng: number } | string;
   name: string;
-  stopover: boolean;
+  lat: number;
+  lng: number;
 }
 
-// ─── Planner ───
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
 
-export interface Stay {
+/** A row in an autosuggest list. */
+export interface PlaceSuggestion {
+  placeId: string;
+  name: string;
+  address: string;
+  /** What gets written into the input when the row is chosen. */
+  label: string;
+}
+
+/** A place returned by nearby search. Rating is only set when Mappls returns one. */
+export interface NearbyPlace {
   id: string;
   name: string;
-  distance?: string;
+  address: string;
+  lat: number;
+  lng: number;
   rating?: number;
-  image?: string;
 }
-
-export interface Attraction {
-  id: string;
-  name: string;
-  vicinity?: string;
-  rating?: number;
-  geometry?: {
-    location: {
-      lat: () => number;
-      lng: () => number;
-    };
-  };
-}
-
-// ─── UI State ───
-
-export type Theme = 'light' | 'dark';
 
 export type ModalType = 'travelMode' | 'vehicleSelection' | null;
-
-export type TabId = 'sakha' | 'planner' | 'destinations' | 'history';
+export type Theme = 'light' | 'dark';

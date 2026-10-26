@@ -1,466 +1,260 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useAppContext } from "../contexts/AppContext";
-import {
-  MicrophoneIcon,
-  ReverseIcon,
-  PaperPlaneIcon,
-  ArrowRightIcon,
-} from "../constants";
-import {
-  GeolocationPermissionError,
-  MicrophonePermissionError,
-} from "../components/common/PermissionErrors";
-import {
-  getAutocompletePredictions,
-  reverseGeocode,
-} from "../services/mapService";
-import { useSpeechToText } from "../hooks/useSpeechToText";
-import {
-  PredictionsList,
-  PlacePrediction,
-} from "../components/map/PredictionsList";
-import { TabScreenHeader } from "../components/common/TabScreenHeader";
-import { sendMessageToSakha } from "../services/aiService";
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useNavigation } from '../contexts/NavigationContext';
+import { useStartTrip } from '../hooks/useStartTrip';
+import { sendMessageToSakha, type SakhaReply } from '../services/aiService';
+import { CURRENT_LOCATION, getCurrentAddress } from '../services/location';
+import { m, AnimatePresence } from '../components/ui/motion';
+import { PlaceInput } from '../components/ui/PlaceInput';
+import { RouteLine } from '../components/ui/RouteLine';
+import { Notice } from '../components/ui/Notice';
+import { SendIcon, SwapIcon, LocateIcon, ArrowRightIcon } from '../components/ui/icons';
 
 interface ChatMessage {
   id: string;
-  role: "user" | "model";
+  role: 'user' | 'model';
   text: string;
-  navigationIntent?: { origin: string; destination: string } | null;
+  isError?: boolean;
+  navigationIntent?: SakhaReply['navigationIntent'];
 }
 
-export const SakhaScreen = () => {
-  const {
-    navigationOrigin,
-    navigationDestination,
-    setNavigationOrigin,
-    setNavigationDestination,
-    setActiveModal,
-    startNavigationFrom,
-  } = useAppContext();
+const WELCOME: ChatMessage = {
+  id: 'welcome',
+  role: 'model',
+  text: 'Namaste, I am Sakha. Ask me about a route, a good place to stop for chai, or what to see on the way. If you tell me where you are headed, I can start the navigation for you.',
+};
 
-  // Mode Toggle: 'quick' | 'assistant'
-  const [activeMode, setActiveMode] = useState<"quick" | "assistant">(
-    "assistant",
-  );
+const SUGGESTIONS = [
+  'Weekend trip from Mumbai to Lonavala',
+  'Best petrol and food stops from Delhi to Jaipur',
+  'Is the Bengaluru to Coorg drive fine with kids?',
+];
 
-  // Quick Navigate State
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [originPredictions, setOriginPredictions] = useState<PlacePrediction[]>(
-    [],
-  );
-  const [destinationPredictions, setDestinationPredictions] = useState<
-    PlacePrediction[]
-  >([]);
-  const [activeInput, setActiveInput] = useState<
-    "origin" | "destination" | null
-  >(null);
-  const [permissionError, setPermissionError] = useState<string | null>(null);
-  const originSpeech = useSpeechToText((text) => setNavigationOrigin(text));
-  const destinationSpeech = useSpeechToText((text) =>
-    setNavigationDestination(text),
-  );
-  const micPermissionError = originSpeech.error || destinationSpeech.error;
+let messageCounter = 0;
+const nextId = () => `m${Date.now()}-${messageCounter++}`;
 
-  // AI Assistant Chat State
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "model",
-      text: "Namaste! I'm Sakha, your AI road-trip co-pilot. 🚗✨\n\nAsk me anything about route planning, local food recommendations, scenic pit stops, or just describe where you want to go (e.g., 'Plan a weekend trip from Mumbai to Lonavala').",
-    },
-  ]);
-  const [chatInput, setChatInput] = useState("");
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
+export default function SakhaScreen() {
+  const location = useLocation();
+  const [tab, setTab] = useState<'chat' | 'route'>(location.state?.tab === 'route' ? 'route' : 'chat');
+
+  return (
+    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 pt-4 sm:px-8 sm:pt-8">
+      <h1 className="t-title mb-4">Sakha</h1>
+      <div className="segmented mb-4 shrink-0" role="tablist" aria-label="Sakha modes">
+        <button type="button" role="tab" id="tab-chat" aria-selected={tab === 'chat'} aria-controls="panel-chat" onClick={() => setTab('chat')}>
+          Ask Sakha
+        </button>
+        <button type="button" role="tab" id="tab-route" aria-selected={tab === 'route'} aria-controls="panel-route" onClick={() => setTab('route')}>
+          Quick route
+        </button>
+      </div>
+
+      {tab === 'chat' ? <Chat /> : <QuickRoute />}
+    </div>
+  );
+}
+
+function Chat() {
+  const startTrip = useStartTrip();
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+    endRef.current?.scrollIntoView({ block: 'end', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [messages, sending]);
 
-  // Predictions loaders
-  useEffect(() => {
-    const fetchPredictions = async () => {
-      if (
-        activeInput === "origin" &&
-        navigationOrigin &&
-        navigationOrigin.length > 2 &&
-        navigationOrigin !== "Current Location"
-      ) {
-        const results = await getAutocompletePredictions(navigationOrigin);
-        setOriginPredictions(results);
-      } else {
-        setOriginPredictions([]);
-      }
-    };
-    const timer = setTimeout(fetchPredictions, 300);
-    return () => clearTimeout(timer);
-  }, [navigationOrigin, activeInput]);
+  const send = async (text: string) => {
+    const message = text.trim();
+    if (!message || sending) return;
 
-  useEffect(() => {
-    const fetchPredictions = async () => {
-      if (
-        activeInput === "destination" &&
-        navigationDestination &&
-        navigationDestination.length > 2
-      ) {
-        const results = await getAutocompletePredictions(navigationDestination);
-        setDestinationPredictions(results);
-      } else {
-        setDestinationPredictions([]);
-      }
-    };
-    const timer = setTimeout(fetchPredictions, 300);
-    return () => clearTimeout(timer);
-  }, [navigationDestination, activeInput]);
-
-  const handleSelectPrediction = (
-    field: "origin" | "destination",
-    prediction: PlacePrediction,
-  ) => {
-    if (field === "origin") {
-      setNavigationOrigin(prediction.description);
-    } else {
-      setNavigationDestination(prediction.description);
-    }
-    setActiveInput(null);
-  };
-
-  const handleStartTrip = async () => {
-    if (permissionError) setPermissionError(null);
-
-    if (!navigationDestination) {
-      alert("Please enter a destination.");
-      return;
-    }
-    if (!navigationOrigin) {
-      alert("Please enter an origin.");
-      return;
-    }
-
-    const resolveCurrentLocation = async (field: "origin" | "destination") => {
-      setIsLoadingLocation(true);
-      try {
-        const position = await new Promise<GeolocationPosition>(
-          (resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              timeout: 10000,
-            });
-          },
-        );
-
-        const formattedAddress = await reverseGeocode(
-          position.coords.latitude,
-          position.coords.longitude,
-        );
-        if (formattedAddress && formattedAddress !== "Unknown Location") {
-          if (field === "origin") setNavigationOrigin(formattedAddress);
-          else setNavigationDestination(formattedAddress);
-          return formattedAddress;
-        } else {
-          throw new Error("No address resolved.");
-        }
-      } catch (error: any) {
-        setPermissionError(
-          "Could not resolve location. Please configure settings or search manually.",
-        );
-        if (field === "origin") setNavigationOrigin("");
-        else setNavigationDestination("");
-        return null;
-      } finally {
-        setIsLoadingLocation(false);
-      }
-    };
-
-    if (navigationOrigin === "Current Location") {
-      const resolvedOrigin = await resolveCurrentLocation("origin");
-      if (!resolvedOrigin) return;
-    }
-
-    if (navigationDestination === "Current Location") {
-      const resolvedDestination = await resolveCurrentLocation("destination");
-      if (!resolvedDestination) return;
-    }
-
-    setActiveModal("travelMode");
-  };
-
-  const handleSendChatMessage = async () => {
-    if (!chatInput.trim() || isSendingMessage) return;
-
-    const userMessageText = chatInput;
-    const userMsg: ChatMessage = {
-      id: String(Date.now()),
-      role: "user",
-      text: userMessageText,
-    };
-
-    setChatMessages((prev) => [...prev, userMsg]);
-    setChatInput("");
-    setIsSendingMessage(true);
+    // Replies that failed are display-only, so they never go back to the model as history.
+    const history = messages.filter((msg) => msg.id !== 'welcome' && !msg.isError).map(({ role, text }) => ({ role, text }));
+    setMessages((prev) => [...prev, { id: nextId(), role: 'user', text: message }]);
+    setInput('');
+    setSending(true);
 
     try {
-      const history = chatMessages
-        .filter((m) => m.id !== "welcome")
-        .map((m) => ({ role: m.role, text: m.text }));
-
-      const response = await sendMessageToSakha(userMessageText, history);
-
-      const replyMsg: ChatMessage = {
-        id: String(Date.now() + 1),
-        role: "model",
-        text: response.text,
-        navigationIntent: response.navigationIntent,
-      };
-
-      setChatMessages((prev) => [...prev, replyMsg]);
-    } catch (error: any) {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: String(Date.now() + 1),
-          role: "model",
-          text: `Sorry, I'm having trouble connecting right now: ${error.message || error}`,
-        },
-      ]);
+      const reply = await sendMessageToSakha(message, history);
+      setMessages((prev) => [...prev, { id: nextId(), role: 'model', text: reply.text, navigationIntent: reply.navigationIntent }]);
+    } catch (error) {
+      setMessages((prev) => [...prev, { id: nextId(), role: 'model', text: (error as Error).message, isError: true }]);
     } finally {
-      setIsSendingMessage(false);
+      setSending(false);
+    }
+  };
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    send(input);
+  };
+
+  return (
+    <section id="panel-chat" role="tabpanel" aria-labelledby="tab-chat" className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1" role="log" aria-live="polite" aria-label="Conversation with Sakha">
+        <ul className="space-y-5">
+          <AnimatePresence initial={false}>
+            {messages.map((msg) => (
+              <m.li
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+                className={msg.role === 'user' ? 'flex justify-end' : ''}
+              >
+                {msg.role === 'user' ? (
+                  <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-ink px-4 py-2.5 text-bg">{msg.text}</p>
+                ) : msg.isError ? (
+                  <Notice>{msg.text}</Notice>
+                ) : (
+                  <div className="max-w-[92%] border-l-4 border-accent pl-4">
+                    <p className="mb-0.5 text-sm font-semibold text-ink-muted">Sakha</p>
+                    <div className="space-y-2">
+                      {msg.text.split(/\n{2,}/).map((para, i) => (
+                        <p key={i} className="whitespace-pre-wrap">{para}</p>
+                      ))}
+                    </div>
+                    {msg.navigationIntent && (
+                      <div className="mt-4 rounded-[var(--radius-control)] border border-line-strong bg-surface p-4">
+                        <RouteLine from={msg.navigationIntent.origin} to={msg.navigationIntent.destination} />
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm mt-4"
+                          onClick={() => startTrip(msg.navigationIntent!.origin, msg.navigationIntent!.destination)}
+                        >
+                          Start navigation
+                          <ArrowRightIcon className="size-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </m.li>
+            ))}
+          </AnimatePresence>
+          {sending && (
+            <li className="flex items-center gap-2 border-l-4 border-accent pl-4 text-ink-muted" aria-label="Sakha is typing">
+              <span className="flex gap-1" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <m.span
+                    key={i}
+                    className="size-2 rounded-full bg-ink-muted"
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: i * 0.18 }}
+                  />
+                ))}
+              </span>
+              Sakha is replying
+            </li>
+          )}
+        </ul>
+
+        {messages.length === 1 && (
+          <div className="mt-6">
+            <p className="t-meta mb-2">Try asking</p>
+            <ul className="flex flex-wrap gap-2">
+              {SUGGESTIONS.map((s) => (
+                <li key={s}>
+                  <button type="button" className="btn btn-outline btn-sm text-left whitespace-normal" onClick={() => send(s)}>
+                    {s}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+
+      <form onSubmit={onSubmit} className="flex shrink-0 items-end gap-2 pb-4 pt-2">
+        <label htmlFor="sakha-input" className="sr-only">Message Sakha</label>
+        <input
+          id="sakha-input"
+          className="input flex-1"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Message Sakha"
+          maxLength={2000}
+          autoComplete="off"
+          enterKeyHint="send"
+        />
+        <button type="submit" className="btn btn-primary size-[2.875rem] p-0!" disabled={!input.trim() || sending} aria-label="Send message">
+          <SendIcon className="size-5" aria-hidden="true" />
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function QuickRoute() {
+  const { origin, destination, setOrigin, setDestination } = useNavigation();
+  const startTrip = useStartTrip();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const useMyLocation = () => setOrigin(CURRENT_LOCATION);
+
+  const go = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    let from = origin.trim();
+    let to = destination.trim();
+    if (!from || !to) {
+      setError('Enter both a starting point and a destination.');
+      return;
+    }
+    setBusy(true);
+    try {
+      if (from === CURRENT_LOCATION) from = await getCurrentAddress();
+      if (to === CURRENT_LOCATION) to = await getCurrentAddress();
+      startTrip(from, to);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <>
-      <TabScreenHeader title="Sakha Assistant" />
-      <div className="p-6 text-text flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-80px)] max-w-sm md:max-w-4xl w-full mx-auto space-y-5 animate-fade-in">
-        {/* Immersive Subheading Mode Switcher */}
-        <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-lg relative z-10 flex-shrink-0">
-          <button
-            onClick={() => setActiveMode("quick")}
-            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${activeMode === "quick" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-200"}`}
-          >
-            Quick Navigate
-          </button>
-          <button
-            onClick={() => setActiveMode("assistant")}
-            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${activeMode === "assistant" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-200"}`}
-          >
-            AI Chat Assistant
+    <section id="panel-route" role="tabpanel" aria-labelledby="tab-route" className="min-h-0 flex-1 overflow-y-auto pb-6">
+      <form onSubmit={go} className="space-y-4" noValidate>
+        {error && <Notice>{error}</Notice>}
+        <div>
+          <PlaceInput
+            label="From"
+            value={origin}
+            onChange={setOrigin}
+            placeholder="Starting point"
+            suppressFor={CURRENT_LOCATION}
+          />
+          <button type="button" className="btn btn-quiet btn-sm mt-1 -ml-2" onClick={useMyLocation}>
+            <LocateIcon className="size-4" aria-hidden="true" />
+            Use my location
           </button>
         </div>
 
-        {/* Quick Navigate View */}
-        {activeMode === "quick" ? (
-          <div className="flex-grow flex flex-col justify-between space-y-4 overflow-y-auto no-scrollbar">
-            <div className="card bg-slate-900 border border-slate-800 p-5 space-y-5 relative shadow-sm">
-              <div className="relative">
-                <label
-                  htmlFor="origin-input"
-                  className="block text-[11px] font-bold text-slate-450 uppercase tracking-wider mb-2"
-                >
-                  Starting Point
-                </label>
-                <div className="relative">
-                  <input
-                    id="origin-input"
-                    type="text"
-                    value={navigationOrigin || ""}
-                    onFocus={() => {
-                      if (navigationOrigin === "Current Location")
-                        setNavigationOrigin("");
-                      setActiveInput("origin");
-                    }}
-                    onBlur={() => setTimeout(() => setActiveInput(null), 250)}
-                    onChange={(e) => setNavigationOrigin(e.target.value)}
-                    placeholder="Enter starting location or 'Current Location'"
-                    className="input pr-10"
-                    autoComplete="off"
-                  />
-                  <button
-                    onClick={originSpeech.startListening}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all cursor-pointer ${originSpeech.isListening ? "bg-rose-500/10 text-rose-500 animate-pulse" : "text-slate-500 hover:text-slate-300"}`}
-                    aria-label="Search by voice for origin"
-                  >
-                    <MicrophoneIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                {activeInput === "origin" && originPredictions.length > 0 && (
-                  <PredictionsList
-                    predictions={originPredictions}
-                    onSelect={(p) => handleSelectPrediction("origin", p)}
-                  />
-                )}
-              </div>
-
-              <div className="flex justify-center -my-3 relative z-10">
-                <button
-                  onClick={() => {
-                    const temp = navigationOrigin;
-                    setNavigationOrigin(navigationDestination);
-                    setNavigationDestination(temp);
-                  }}
-                  className="p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:text-white active:scale-95 transition-all cursor-pointer shadow-sm"
-                  aria-label="Reverse direction"
-                >
-                  <ReverseIcon className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="destination-input"
-                  className="block text-[11px] font-bold text-slate-450 uppercase tracking-wider mb-2"
-                >
-                  Final Destination
-                </label>
-                <div className="relative">
-                  <input
-                    id="destination-input"
-                    type="text"
-                    value={navigationDestination || ""}
-                    onFocus={() => setActiveInput("destination")}
-                    onBlur={() => setTimeout(() => setActiveInput(null), 250)}
-                    onChange={(e) => setNavigationDestination(e.target.value)}
-                    placeholder="Where to?"
-                    className="input pr-10"
-                    autoComplete="off"
-                  />
-                  <button
-                    onClick={destinationSpeech.startListening}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all cursor-pointer ${destinationSpeech.isListening ? "bg-rose-500/10 text-rose-500 animate-pulse" : "text-slate-500 hover:text-slate-300"}`}
-                    aria-label="Search by voice for destination"
-                  >
-                    <MicrophoneIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                {activeInput === "destination" &&
-                  destinationPredictions.length > 0 && (
-                    <PredictionsList
-                      predictions={destinationPredictions}
-                      onSelect={(p) => handleSelectPrediction("destination", p)}
-                    />
-                  )}
-              </div>
-            </div>
-
-            <button
-              onClick={handleStartTrip}
-              disabled={!navigationDestination || isLoadingLocation}
-              className="btn btn-primary btn-full py-3.5 text-xs font-bold tracking-wider uppercase flex-shrink-0 cursor-pointer"
-            >
-              {isLoadingLocation ? "Resolving location..." : "Start Navigation"}
-            </button>
-          </div>
-        ) : (
-          /* AI Assistant Chat View */
-          <div className="flex-grow flex flex-col justify-between overflow-hidden relative">
-            {/* Messages Area */}
-            <div className="flex-grow overflow-y-auto space-y-4 pr-1 pb-4 scrollbar-thin">
-              {chatMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} space-y-1.5`}
-                >
-                  <div
-                    className={`max-w-[85%] px-4 py-3 rounded-lg text-xs leading-relaxed ${msg.role === "user" ? "bg-slate-800 border border-slate-700 text-white rounded-tr-none" : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none"}`}
-                  >
-                    {msg.text.split("\n").map((line, i) => (
-                      <p
-                        key={i}
-                        className={
-                          line.trim() === "" ? "h-2" : "mb-1 last:mb-0"
-                        }
-                      >
-                        {line}
-                      </p>
-                    ))}
-                  </div>
-
-                  {/* Inline Interactive Navigation Trigger Button */}
-                  {msg.navigationIntent && (
-                    <div className="card bg-slate-900 border border-slate-800 p-4 flex flex-col gap-3.5 w-full max-w-[85%] mt-1">
-                      <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
-                        Plan Detected
-                      </p>
-                      <p className="text-xs font-medium text-slate-200 leading-snug">
-                        Start road trip from {msg.navigationIntent.origin} to{" "}
-                        {msg.navigationIntent.destination}?
-                      </p>
-                      <button
-                        onClick={() =>
-                          startNavigationFrom(
-                            msg.navigationIntent!.origin,
-                            msg.navigationIntent!.destination,
-                          )
-                        }
-                        className="btn btn-primary btn-sm flex items-center justify-center gap-1.5 cursor-pointer text-xs py-2 px-3"
-                      >
-                        Start Navigation{" "}
-                        <ArrowRightIcon className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {isSendingMessage && (
-                <div className="flex items-center space-x-2 text-slate-500 text-xs pl-1.5 animate-pulse font-medium">
-                  <div className="w-1 h-1 rounded-full bg-cyan-400 animate-bounce"></div>
-                  <div className="w-1 h-1 rounded-full bg-cyan-400 animate-bounce delay-75"></div>
-                  <div className="w-1 h-1 rounded-full bg-cyan-400 animate-bounce delay-150"></div>
-                  <span>Sakha is composing trip plan...</span>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Message Input Controls */}
-            <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-lg flex items-center gap-2 flex-shrink-0">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSendChatMessage();
-                }}
-                placeholder="Message Sakha..."
-                className="bg-transparent text-xs text-white flex-grow p-2.5 focus:outline-none placeholder-slate-650 font-medium"
-                disabled={isSendingMessage}
-              />
-              <button
-                onClick={handleSendChatMessage}
-                disabled={!chatInput.trim() || isSendingMessage}
-                className="p-2.5 bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-slate-950 font-bold rounded-md transition-all disabled:opacity-40 disabled:scale-100 cursor-pointer flex items-center justify-center"
-                aria-label="Send message to AI assistant"
-              >
-                <PaperPlaneIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {permissionError && (
-          <GeolocationPermissionError
-            message={permissionError}
-            onRetry={() => {
-              setPermissionError(null);
-              handleStartTrip();
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => {
+              setOrigin(destination);
+              setDestination(origin);
             }}
-            onCancel={() => setPermissionError(null)}
-          />
-        )}
-        {micPermissionError && (
-          <MicrophonePermissionError
-            message={micPermissionError}
-            onRetry={() => {
-              originSpeech.setError(null);
-              destinationSpeech.setError(null);
-            }}
-            onCancel={() => {
-              originSpeech.setError(null);
-              destinationSpeech.setError(null);
-            }}
-          />
-        )}
-      </div>
-    </>
+          >
+            <SwapIcon className="size-4" aria-hidden="true" />
+            Swap
+          </button>
+        </div>
+
+        <PlaceInput label="To" value={destination} onChange={setDestination} placeholder="Where to?" />
+
+        <button type="submit" className="btn btn-primary btn-block" disabled={!destination.trim() || busy}>
+          {busy && <span className="spinner" aria-hidden="true" />}
+          {busy ? 'Finding your location' : 'Choose how to travel'}
+        </button>
+      </form>
+    </section>
   );
-};
+}

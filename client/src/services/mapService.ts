@@ -1,323 +1,237 @@
-import axios from "axios";
+/**
+ * Thin wrappers over the Mappls (MapmyIndia) REST APIs. Every function returns
+ * an empty result instead of throwing, so screens can show "nothing found"
+ * without a try/catch each. The REST key is read from VITE_MAPPLS_REST_API_KEY.
+ */
+import axios from 'axios';
+import polyline from '@mapbox/polyline';
+import type { LatLng, NearbyPlace, PlaceSuggestion } from '../types';
 
-const getRestKey = (): string => {
-  return import.meta.env.VITE_MAPPLS_REST_API_KEY || "";
+const restKey = (): string => import.meta.env.VITE_MAPPLS_REST_API_KEY || '';
+
+export const hasRestKey = (): boolean => restKey().length > 0;
+
+// ─── Distance ───
+
+/** Great-circle distance in metres. */
+export const calculateDistance = (a: LatLng, b: LatLng): number => {
+  const R = 6371e3;
+  const phi1 = (a.lat * Math.PI) / 180;
+  const phi2 = (b.lat * Math.PI) / 180;
+  const dPhi = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLambda = ((b.lng - a.lng) * Math.PI) / 180;
+  const h =
+    Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 };
 
-// ─── Mathematical Haversine Distance (No SDK dependency) ───
-export const calculateDistance = (
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number => {
-  const R = 6371e3; // Earth radius in meters
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lng2 - lng1) * Math.PI) / 180;
+export const formatDistance = (metres: number): string =>
+  metres < 1000 ? `${Math.round(metres)} m` : `${(metres / 1000).toFixed(metres < 10000 ? 1 : 0)} km`;
 
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) *
-      Math.cos(phi2) *
-      Math.sin(deltaLambda / 2) *
-      Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // distance in meters
+export const formatDuration = (seconds: number): string => {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
 };
 
-// ─── Autosuggest API ───
-export const getAutocompletePredictions = async (
-  query: string,
-): Promise<any[]> => {
-  const apiKey = getRestKey();
-  if (!apiKey || !query.trim()) return [];
+// ─── Search ───
 
+export const getAutocompletePredictions = async (query: string): Promise<PlaceSuggestion[]> => {
+  if (!hasRestKey() || !query.trim()) return [];
   try {
-    const url = `https://atlas.mappls.com/api/places/suggest`;
-    const res = await axios.get(url, {
-      params: {
-        query: query,
-        region: "ind",
-        access_token: apiKey,
-      },
+    const res = await axios.get('https://atlas.mappls.com/api/places/suggest', {
+      params: { query, region: 'ind', access_token: restKey() },
     });
-
-    if (res.data && res.data.suggestedLocations) {
-      return res.data.suggestedLocations.map((p: any) => ({
-        id: p.eLoc || String(Math.random()),
-        place_id: p.eLoc,
-        name: p.placeName,
-        description: `${p.placeName}, ${p.placeAddress}`,
-        vicinity: p.placeAddress,
-        structured_formatting: {
-          main_text: p.placeName,
-          secondary_text: p.placeAddress,
-        },
-      }));
-    }
-    return [];
+    return (res.data?.suggestedLocations ?? []).map((p: any) => ({
+      placeId: p.eLoc,
+      name: p.placeName,
+      address: p.placeAddress ?? '',
+      label: p.placeAddress ? `${p.placeName}, ${p.placeAddress}` : p.placeName,
+    }));
   } catch (err) {
-    console.error("Mappls Autosuggest request failed:", err);
+    console.error('Mappls suggest failed:', err);
     return [];
   }
 };
 
-// ─── Text / Nearby Search API ───
 export const searchNearbyPlaces = async (
   keyword: string,
-  location?: { lat: number; lng: number },
-  radius: number = 5000,
-): Promise<any[]> => {
-  const apiKey = getRestKey();
-  if (!apiKey) return [];
-
+  location?: LatLng,
+  radius = 5000,
+): Promise<NearbyPlace[]> => {
+  if (!hasRestKey()) return [];
   try {
-    const url = `https://atlas.mappls.com/api/places/nearby`;
-    const params: any = {
-      keywords: keyword,
-      access_token: apiKey,
-    };
-
+    const params: Record<string, string | number> = { keywords: keyword, access_token: restKey() };
     if (location) {
       params.refLocation = `${location.lat},${location.lng}`;
       params.radius = radius;
     }
-
-    const res = await axios.get(url, { params });
-
-    if (res.data && res.data.suggestedLocations) {
-      return res.data.suggestedLocations.map((place: any) => ({
-        id: place.eLoc,
-        place_id: place.eLoc,
-        name: place.placeName,
-        vicinity: place.placeAddress,
-        rating: place.rating || 4.2,
-        user_ratings_total: place.user_ratings_total || 25,
-        geometry: {
-          location: {
-            lat: () => place.latitude,
-            lng: () => place.longitude,
-          },
-        },
-        photos: [
-          "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=400&auto=format&fit=crop",
-        ],
-        icon: place.icon,
-      }));
-    }
-    return [];
+    const res = await axios.get('https://atlas.mappls.com/api/places/nearby', { params });
+    return (res.data?.suggestedLocations ?? []).map((p: any) => ({
+      id: p.eLoc,
+      name: p.placeName,
+      address: p.placeAddress ?? '',
+      lat: Number(p.latitude),
+      lng: Number(p.longitude),
+      rating: typeof p.rating === 'number' && p.rating > 0 ? p.rating : undefined,
+    }));
   } catch (err) {
-    console.error("Mappls Nearby Search request failed:", err);
+    console.error('Mappls nearby search failed:', err);
     return [];
   }
 };
 
-// ─── Place Details API (eLoc Lookup) ───
-export const getPlaceDetails = async (placeId: string): Promise<any> => {
-  const apiKey = getRestKey();
-  if (!apiKey) return null;
-
+export const getPlaceDetails = async (
+  placeId: string,
+): Promise<{ name: string; address: string; lat: number; lng: number } | null> => {
+  if (!hasRestKey()) return null;
   try {
-    const url = `https://atlas.mappls.com/api/places/detail`;
-    const res = await axios.get(url, {
-      params: {
-        eLoc: placeId,
-        access_token: apiKey,
-      },
+    const res = await axios.get('https://atlas.mappls.com/api/places/detail', {
+      params: { eLoc: placeId, access_token: restKey() },
     });
-
-    if (res.data) {
-      const detail = res.data;
-      return {
-        name: detail.placeName,
-        geometry: {
-          location: {
-            lat: () => detail.latitude,
-            lng: () => detail.longitude,
-          },
-        },
-        formatted_address: detail.placeAddress,
-      };
-    }
-    return null;
+    const d = res.data;
+    if (!d) return null;
+    return { name: d.placeName, address: d.placeAddress ?? '', lat: Number(d.latitude), lng: Number(d.longitude) };
   } catch (err) {
-    console.error("Mappls Details lookup failed:", err);
+    console.error('Mappls place details failed:', err);
     return null;
   }
 };
 
-// ─── Geocoding Helper ───
-export const geocodeAddress = async (
-  address: string,
-): Promise<{ lat: number; lng: number } | null> => {
-  const apiKey = getRestKey();
-  if (!apiKey) return null;
-
+export const geocodeAddress = async (address: string): Promise<LatLng | null> => {
+  if (!hasRestKey()) return null;
   try {
-    const url = `https://atlas.mappls.com/api/places/geocode`;
-    const res = await axios.get(url, {
-      params: {
-        address: address,
-        access_token: apiKey,
-      },
+    const res = await axios.get('https://atlas.mappls.com/api/places/geocode', {
+      params: { address, access_token: restKey() },
     });
-
-    if (res.data && res.data.copResults && res.data.copResults.length > 0) {
-      const result = res.data.copResults[0];
-      return {
-        lat: parseFloat(result.latitude),
-        lng: parseFloat(result.longitude),
-      };
-    }
-    return null;
+    const first = res.data?.copResults?.[0] ?? res.data?.copResults;
+    if (!first || first.latitude === undefined) return null;
+    return { lat: parseFloat(first.latitude), lng: parseFloat(first.longitude) };
   } catch (err) {
-    console.error("Mappls Geocode request failed:", err);
+    console.error('Mappls geocode failed:', err);
     return null;
   }
 };
 
-// ─── Directions API with Adapter ───
-export const getDirections = async (
-  origin: string | { lat: number; lng: number },
-  destination: string | { lat: number; lng: number },
-  waypoints: {
-    location: string | { lat: number; lng: number };
-    stopover: boolean;
-  }[] = [],
-): Promise<any> => {
-  const apiKey = getRestKey();
-  if (!apiKey) return null;
+/** Coordinates for a typed place name: geocoder first, then the top autosuggest hit. */
+export const resolvePlace = async (text: string): Promise<LatLng | null> => {
+  if (!text) return null;
+  const direct = await geocodeAddress(text);
+  if (direct) return direct;
+  const [top] = await getAutocompletePredictions(text);
+  if (!top) return null;
+  const details = await getPlaceDetails(top.placeId);
+  return details ? { lat: details.lat, lng: details.lng } : null;
+};
 
+export const reverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+  if (!hasRestKey()) return null;
   try {
-    // Resolve start and end coordinates
-    let startCoords = "";
-    if (typeof origin === "string") {
-      const loc = await geocodeAddress(origin);
-      if (!loc) return null;
-      startCoords = `${loc.lng},${loc.lat}`;
-    } else {
-      startCoords = `${origin.lng},${origin.lat}`;
-    }
+    const res = await axios.get(`https://apis.mappls.com/advancedmaps/v1/${restKey()}/rev_geocode`, {
+      params: { lat, lng },
+    });
+    return res.data?.results?.[0]?.formatted_address ?? null;
+  } catch (err) {
+    console.error('Mappls reverse geocode failed:', err);
+    return null;
+  }
+};
 
-    let endCoords = "";
-    if (typeof destination === "string") {
-      const loc = await geocodeAddress(destination);
-      if (!loc) return null;
-      endCoords = `${loc.lng},${loc.lat}`;
-    } else {
-      endCoords = `${destination.lng},${destination.lat}`;
-    }
+// ─── Directions ───
 
-    // Parse waypoints
-    const resolvedWaypoints: string[] = [];
-    for (const wp of waypoints) {
-      if (typeof wp.location === "string") {
-        const loc = await geocodeAddress(wp.location);
-        if (loc) resolvedWaypoints.push(`${loc.lng},${loc.lat}`);
-      } else {
-        resolvedWaypoints.push(`${wp.location.lng},${wp.location.lat}`);
+export type Maneuver = 'left' | 'right' | 'straight' | 'uturn' | 'merge';
+
+export interface RouteStep {
+  instruction: string;
+  maneuver: Maneuver;
+  /** Where this manoeuvre happens. */
+  location: LatLng;
+  /** Length of the road segment that follows the manoeuvre, in metres. */
+  distance: number;
+}
+
+export interface RouteResult {
+  distance: number; // metres
+  duration: number; // seconds
+  path: LatLng[];
+  steps: RouteStep[];
+}
+
+const toManeuver = (type = '', modifier = ''): Maneuver => {
+  const text = `${type} ${modifier}`.toLowerCase();
+  if (text.includes('uturn') || text.includes('u-turn')) return 'uturn';
+  if (text.includes('merge')) return 'merge';
+  if (text.includes('left')) return 'left';
+  if (text.includes('right')) return 'right';
+  return 'straight';
+};
+
+const IN_INDIA = (p: LatLng) => p.lat > 5 && p.lat < 38 && p.lng > 66 && p.lng < 99;
+
+/** Route geometry can be an encoded polyline (precision 5 or 6) or GeoJSON. */
+const decodeGeometry = (geometry: unknown): LatLng[] => {
+  if (typeof geometry === 'string') {
+    for (const precision of [5, 6]) {
+      try {
+        const points = polyline.decode(geometry, precision).map(([lat, lng]) => ({ lat, lng }));
+        if (points.length > 1 && points.every((p, i) => i % 20 !== 0 || IN_INDIA(p))) return points;
+      } catch {
+        // try the next precision
       }
     }
-
-    // Coordinate chain formatting: start;wp1;wp2;...;end
-    const coordinateChain = [startCoords, ...resolvedWaypoints, endCoords].join(
-      ";",
-    );
-
-    // Query Mappls advanced routing API
-    const url = `https://apis.mappls.com/advancedmaps/v1/${apiKey}/route_adv/driving/${coordinateChain}`;
-    const res = await axios.get(url, {
-      params: {
-        overview: "full",
-        steps: "true",
-      },
-    });
-
-    if (res.data && res.data.routes && res.data.routes.length > 0) {
-      const route = res.data.routes[0];
-      const leg = route.legs[0];
-
-      // Google Maps shape Adapter
-      return {
-        routes: [
-          {
-            legs: [
-              {
-                distance: {
-                  text:
-                    leg.distance < 1000
-                      ? `${Math.round(leg.distance)} m`
-                      : `${(leg.distance / 1000).toFixed(1)} km`,
-                  value: leg.distance,
-                },
-                duration: {
-                  text:
-                    leg.duration < 3600
-                      ? `${Math.round(leg.duration / 60)} mins`
-                      : `${Math.floor(leg.duration / 3600)}h ${Math.round((leg.duration % 3600) / 60)}m`,
-                  value: leg.duration,
-                },
-                steps: (leg.steps || []).map((step: any) => ({
-                  html_instructions:
-                    step.maneuver?.instruction ||
-                    step.instruction ||
-                    "Continue driving",
-                  distance: {
-                    text:
-                      step.distance < 1000
-                        ? `${Math.round(step.distance)} m`
-                        : `${(step.distance / 1000).toFixed(1)} km`,
-                    value: step.distance,
-                  },
-                  duration: {
-                    text: `${Math.round(step.duration / 60)} mins`,
-                    value: step.duration,
-                  },
-                  end_location: {
-                    lat: () => step.location?.[1] || 0,
-                    lng: () => step.location?.[0] || 0,
-                  },
-                })),
-              },
-            ],
-            overview_polyline: route.geometry, // Path coordinates (geojson/encoded polyline)
-          },
-        ],
-      };
-    }
-    return null;
-  } catch (err) {
-    console.error("Mappls Directions query failed:", err);
-    return null;
+  } else if (geometry && typeof geometry === 'object' && Array.isArray((geometry as any).coordinates)) {
+    return (geometry as any).coordinates.map(([lng, lat]: [number, number]) => ({ lat, lng }));
   }
+  return [];
 };
 
-// ─── Reverse Geocoding API ───
-export const reverseGeocode = async (
-  lat: number,
-  lng: number,
-): Promise<string> => {
-  const apiKey = getRestKey();
-  if (!apiKey) return "Unknown Location";
-
+export const getDirections = async (
+  origin: string | LatLng,
+  destination: string | LatLng,
+  waypoints: LatLng[] = [],
+): Promise<RouteResult | null> => {
+  if (!hasRestKey()) return null;
   try {
-    const url = `https://apis.mappls.com/advancedmaps/v1/${apiKey}/rev_geocode`;
-    const res = await axios.get(url, {
-      params: {
-        lat: lat,
-        lng: lng,
-      },
+    const start = typeof origin === 'string' ? await resolvePlace(origin) : origin;
+    const end = typeof destination === 'string' ? await resolvePlace(destination) : destination;
+    if (!start || !end) return null;
+
+    const chain = [start, ...waypoints, end].map((p) => `${p.lng},${p.lat}`).join(';');
+    const res = await axios.get(
+      `https://apis.mappls.com/advancedmaps/v1/${restKey()}/route_adv/driving/${chain}`,
+      { params: { overview: 'full', steps: 'true' } },
+    );
+
+    const route = res.data?.routes?.[0];
+    if (!route) return null;
+
+    const legs: any[] = route.legs ?? [];
+    const rawSteps: any[] = legs.flatMap((leg) => leg.steps ?? []);
+    const steps: RouteStep[] = rawSteps.map((s) => {
+      const m = s.maneuver ?? {};
+      const loc: [number, number] | undefined = m.location ?? s.location;
+      const name = s.name ? ` onto ${s.name}` : '';
+      return {
+        instruction: m.instruction ?? s.instruction ?? `${m.modifier ? `Turn ${m.modifier}` : 'Continue'}${name}`,
+        maneuver: toManeuver(m.type, m.modifier),
+        location: { lat: loc?.[1] ?? 0, lng: loc?.[0] ?? 0 },
+        distance: s.distance ?? 0,
+      };
     });
 
-    if (res.data && res.data.results && res.data.results.length > 0) {
-      return res.data.results[0].formatted_address;
-    }
-    return "Unknown Location";
+    let path = decodeGeometry(route.geometry);
+    if (path.length < 2) path = [start, ...steps.map((s) => s.location), end];
+
+    return {
+      distance: route.distance ?? legs.reduce((sum, l) => sum + (l.distance ?? 0), 0),
+      duration: route.duration ?? legs.reduce((sum, l) => sum + (l.duration ?? 0), 0),
+      path,
+      steps,
+    };
   } catch (err) {
-    console.error("Mappls Reverse Geocoding failed:", err);
-    return "Unknown Location";
+    console.error('Mappls directions failed:', err);
+    return null;
   }
 };

@@ -1,145 +1,107 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppContext } from '../contexts/AppContext';
-import { TabId } from '../types';
-import { 
-    LogoSvg, 
-    SakhaIcon, 
-    PlannerIcon, 
-    PlacesIcon, 
-    HistoryIcon 
-} from '../constants';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useTrips } from '../contexts/TripContext';
+import { useStartTrip } from '../hooks/useStartTrip';
+import { Plate } from '../components/ui/Plate';
+import { RouteLine } from '../components/ui/RouteLine';
+import { SakhaIcon, PlannerIcon, SavedIcon, HistoryIcon, ArrowRightIcon, NavigateIcon } from '../components/ui/icons';
 
-export const HomeScreen = () => {
-    const { user, setActiveTab } = useAppContext();
-    const navigate = useNavigate();
-
-    const getInitials = (name: string | undefined) => {
-        if (!name) return 'U';
-        const parts = name.trim().split(/\s+/);
-        if (parts.length > 1 && parts[1]) {
-            return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-        }
-        return name.substring(0, 2).toUpperCase();
-    };
-
-    const FeatureCard = ({ 
-        iconComponent: Icon, 
-        title, 
-        subtitle, 
-        colorClass,
-        onClick 
-    }: { 
-        iconComponent: React.ElementType; 
-        title: string; 
-        subtitle: string; 
-        colorClass: string;
-        onClick: () => void;
-    }) => (
-        <button 
-            onClick={onClick} 
-            className="group relative text-left bg-slate-900 border border-slate-800 hover:border-slate-700 p-5 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm flex flex-col justify-between overflow-hidden cursor-pointer"
-        >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClass} bg-opacity-10 text-white mb-4`}>
-                <Icon isActive={true} className="w-5 h-5 text-white" />
-            </div>
-            
-            <div className="relative z-10">
-                <h3 className="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors duration-150">{title}</h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>
-            </div>
-        </button>
-    );
-
-    const navigateToTab = (tab: TabId) => {
-        setActiveTab(tab);
-        navigate('/app');
-    };
-
-    return (
-        <div className="p-6 min-h-screen flex flex-col justify-between bg-background text-text relative overflow-hidden">
-            {/* Background Ambient Lights */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"></div>
-
-            <div className="flex-grow space-y-8 max-w-sm md:max-w-4xl w-full mx-auto animate-fade-in">
-                {/* Header */}
-                <header className="flex justify-between items-center py-2 relative z-10">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center p-1.5">
-                            <LogoSvg />
-                        </div>
-                        <div>
-                            <h1 className="text-sm font-extrabold tracking-tight text-white">TripSync</h1>
-                            <p className="text-[10px] text-slate-500">Smart Travel Companion</p>
-                        </div>
-                    </div>
-                    
-                    <button
-                        className="w-8 h-8 bg-slate-800 hover:bg-slate-700 border border-slate-700 active:scale-95 transition-all rounded-full flex items-center justify-center cursor-pointer text-white font-bold text-xs shadow-sm"
-                        onClick={() => navigate('/account')}
-                        aria-label="Go to account page"
-                    >
-                        {getInitials(user?.name)}
-                    </button>
-                </header>
-
-                {/* Welcome Card */}
-                <div className="relative overflow-hidden rounded-xl border border-slate-800 p-5 bg-slate-900/40 backdrop-blur-md">
-                    <h2 className="text-lg font-bold text-white tracking-tight">Welcome back, {user?.name?.split(' ')[0]}</h2>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">Where would you like to travel today? Pick a feature below or talk to Sakha AI to plan details.</p>
-                </div>
-
-                {/* Features Grid */}
-                <section className="space-y-3">
-                    <h2 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Features</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <FeatureCard
-                            iconComponent={SakhaIcon}
-                            title="Sakha Assistant"
-                            subtitle="AI route parsing & chat"
-                            colorClass="text-teal-400 bg-teal-400"
-                            onClick={() => navigateToTab('sakha')}
-                        />
-                        <FeatureCard
-                            iconComponent={PlannerIcon}
-                            title="Trip Planner"
-                            subtitle="Accommodations & stays"
-                            colorClass="text-orange-400 bg-orange-400"
-                            onClick={() => navigateToTab('planner')}
-                        />
-                        <FeatureCard
-                            iconComponent={PlacesIcon}
-                            title="Saved Places"
-                            subtitle="Your favorite list"
-                            colorClass="text-rose-400 bg-rose-400"
-                            onClick={() => navigateToTab('destinations')}
-                        />
-                        <FeatureCard
-                            iconComponent={HistoryIcon}
-                            title="Trip History"
-                            subtitle="Past road trip logs"
-                            colorClass="text-blue-400 bg-blue-400"
-                            onClick={() => navigateToTab('history')}
-                        />
-                    </div>
-                </section>
-
-                {/* Registered Vehicles Summary */}
-                <section className="space-y-3">
-                    <h2 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">My Fleet Details</h2>
-                    <div className="card bg-slate-900 border border-slate-800 p-5 flex justify-around text-center shadow-sm">
-                        <div className="space-y-1">
-                            <p className="text-2xl font-bold text-cyan-400">{user?.twoWheelers?.length || 0}</p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">2-Wheelers</p>
-                        </div>
-                        <div className="w-px bg-slate-800 self-stretch"></div>
-                        <div className="space-y-1">
-                            <p className="text-2xl font-bold text-cyan-400">{user?.fourWheelers?.length || 0}</p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">4-Wheelers</p>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </div>
-    );
+const greeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'Up late,';
+  if (hour < 12) return 'Good morning,';
+  if (hour < 17) return 'Good afternoon,';
+  return 'Good evening,';
 };
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+export default function HomeScreen() {
+  const { user } = useAuth();
+  const { trips, savedRoutes } = useTrips();
+  const startTrip = useStartTrip();
+  const navigate = useNavigate();
+
+  const firstName = user?.name.trim().split(/\s+/)[0] ?? 'there';
+  const lastTrip = trips[0];
+  const vehicles = [...(user?.fourWheelers ?? []), ...(user?.twoWheelers ?? [])];
+
+  const entries = [
+    { to: '/sakha', icon: SakhaIcon, title: 'Ask Sakha', text: 'Chat about a route, or type two places and go.' },
+    { to: '/planner', icon: PlannerIcon, title: 'Plan a trip', text: 'Find a stay and places to visit near your destination.' },
+    { to: '/saved', icon: SavedIcon, title: 'Saved routes', text: savedRoutes.length ? plural(savedRoutes.length, 'route') + ' ready to drive' : 'Routes you save in the planner show up here.' },
+    { to: '/history', icon: HistoryIcon, title: 'Trip history', text: trips.length ? plural(trips.length, 'trip') + ' logged' : 'Finished trips are logged here.' },
+  ];
+
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 pb-10 pt-6 sm:px-8 sm:pt-10">
+      <p className="text-lg text-ink-soft">{greeting()}</p>
+      <h1 className="t-display mt-1 break-words">{firstName}.</h1>
+
+      <button
+        type="button"
+        onClick={() => navigate('/sakha', { state: { tab: 'route' } })}
+        className="mt-8 flex min-h-16 w-full items-center justify-between gap-4 rounded-[var(--radius-control)] bg-accent px-5 text-left text-on-accent transition-[filter] hover:brightness-95"
+      >
+        <span>
+          <span className="block font-display text-xl font-bold leading-tight">Where to?</span>
+          <span className="block text-sm opacity-80">Start a trip from any two places</span>
+        </span>
+        <NavigateIcon className="size-6 shrink-0" aria-hidden="true" />
+      </button>
+
+      <section className="mt-10" aria-labelledby="home-start">
+        <h2 id="home-start" className="t-heading mb-1">Jump in</h2>
+        <ul className="rows">
+          {entries.map(({ to, icon: Icon, title, text }) => (
+            <li key={to}>
+              <Link to={to} className="group flex min-h-16 items-center gap-4 py-3.5">
+                <Icon className="size-6 shrink-0 text-ink-soft group-hover:text-ink" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display text-lg font-semibold leading-tight">{title}</span>
+                  <span className="block text-ink-soft">{text}</span>
+                </span>
+                <ArrowRightIcon className="size-5 shrink-0 text-ink-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {lastTrip && (
+        <section className="mt-10" aria-labelledby="home-last">
+          <h2 id="home-last" className="t-heading mb-3">Last trip</h2>
+          <div className="rounded-[var(--radius-control)] border border-line bg-surface p-4">
+            <RouteLine from={lastTrip.from} to={lastTrip.to} />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="t-meta">{lastTrip.date}{lastTrip.duration ? `, about ${lastTrip.duration}` : ''}</p>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => startTrip(lastTrip.from, lastTrip.to)}>
+                Drive it again
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="mt-10" aria-labelledby="home-vehicles">
+        <div className="mb-3 flex items-baseline justify-between gap-4">
+          <h2 id="home-vehicles" className="t-heading">Your vehicles</h2>
+          <Link to="/account" className="font-semibold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink">
+            {vehicles.length ? 'Manage' : 'Add one'}
+          </Link>
+        </div>
+        {vehicles.length ? (
+          <ul className="flex flex-wrap gap-3">
+            {vehicles.map((v) => (
+              <li key={v.id}>
+                <Plate reg={v.regNumber} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-ink-soft">No vehicles yet. Add a registration number and it will be offered when you start a trip.</p>
+        )}
+      </section>
+    </div>
+  );
+}
