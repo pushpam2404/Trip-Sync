@@ -12,7 +12,7 @@ if (missing.length > 0) {
 }
 
 if (!process.env.GEMINI_API_KEY) {
-    console.warn('GEMINI_API_KEY is not set, so the Sakha chat endpoint will return 503.');
+    console.warn('GEMINI_API_KEY is not set: Sakha will answer from the built-in demo responder.');
 }
 
 const port = Number(process.env.PORT) || 3001;

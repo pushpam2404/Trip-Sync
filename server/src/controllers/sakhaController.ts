@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { AuthRequest } from '../types';
 import { HttpError } from '../middleware/errorHandler';
+import { demoReply } from '../utils/sakhaDemo';
 
 const SYSTEM_PROMPT = `You are Sakha, a helpful, friendly road-trip co-pilot for travellers in India.
 You help plan itineraries, find stays, suggest local food stops, petrol pumps, ATMs, and good routes.
@@ -14,13 +15,16 @@ Do not put any other formatting inside the brackets. Use at most one tag per mes
 const NAV_TAG = /\[NAVIGATE:\s*([^|\]]+)\|\s*([^\]]+)\]/i;
 
 let client: GoogleGenAI | null = null;
-const getClient = () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        throw new HttpError(503, 'Sakha is not configured on this server (GEMINI_API_KEY is missing).');
-    }
+const getClient = (apiKey: string) => {
     client ??= new GoogleGenAI({ apiKey });
     return client;
+};
+
+const isDemo = () => !process.env.GEMINI_API_KEY;
+
+// GET /api/sakha: lets the UI show a "Demo mode" badge before the first message.
+export const sakhaStatus = async (_req: AuthRequest, res: Response) => {
+    res.json({ demo: isDemo() });
 };
 
 // POST /api/sakha
@@ -35,16 +39,21 @@ export const chatWithSakha = async (req: AuthRequest, res: Response) => {
         { role: 'user', parts: [{ text: message }] },
     ];
 
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        res.json({ ...demoReply(message), demo: true });
+        return;
+    }
+
     let replyText: string;
     try {
-        const response = await getClient().models.generateContent({
-            model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+        const response = await getClient(apiKey).models.generateContent({
+            model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
             contents,
             config: { systemInstruction: SYSTEM_PROMPT },
         });
         replyText = response.text || '';
     } catch (error) {
-        if (error instanceof HttpError) throw error;
         console.error('Gemini request failed:', error);
         throw new HttpError(502, 'Sakha could not reach the AI service. Try again in a moment.');
     }
@@ -57,5 +66,6 @@ export const chatWithSakha = async (req: AuthRequest, res: Response) => {
     res.json({
         text: replyText.replace(NAV_TAG, '').trim(),
         navigationIntent: match ? { origin: match[1].trim(), destination: match[2].trim() } : null,
+        demo: false,
     });
 };

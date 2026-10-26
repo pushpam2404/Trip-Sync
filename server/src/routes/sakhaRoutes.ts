@@ -1,7 +1,7 @@
 import express from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { body } from 'express-validator';
-import { chatWithSakha } from '../controllers/sakhaController';
+import { chatWithSakha, sakhaStatus } from '../controllers/sakhaController';
 import { protect } from '../middleware/authMiddleware';
 import { validateRequest } from '../middleware/validationMiddleware';
 import { asyncHandler } from '../middleware/errorHandler';
@@ -28,6 +28,7 @@ export const sakhaValidation = [
     validateRequest,
 ];
 
+router.get('/', protect, asyncHandler(sakhaStatus));
 router.post('/', protect, sakhaLimiter, sakhaValidation, asyncHandler(chatWithSakha));
 
 export default router;
