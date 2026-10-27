@@ -103,7 +103,7 @@ The two Mappls keys end up in the browser bundle, which is how Mappls expects th
 
 ## Deployment
 
-The live site uses free tiers: the client on Vercel, the API on Render, the database on MongoDB Atlas. The settings I use are in the [developer guide](docs/DEVELOPER_GUIDE.md#deployment). The Render free tier sleeps when idle, so the first request after a quiet spell can take a while.
+The live site uses free tiers: the client on Vercel, the API on Vercel, the database on MongoDB Atlas. The settings I use are in the [developer guide](docs/DEVELOPER_GUIDE.md#deployment). The Render free tier sleeps when idle, so the first request after a quiet spell can take a while.
 
 ## Known limitations
 

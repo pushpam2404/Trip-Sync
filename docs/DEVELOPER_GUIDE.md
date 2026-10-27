@@ -39,7 +39,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `ALLOWED_ORIGINS` | no | Comma separated browser origins. Defaults to `http://localhost:5173,http://localhost:3000`. Set it to your Vercel URL in production. |
 | `GEMINI_API_KEY` | no | Turns on the real Sakha. Without it `POST /api/sakha` answers from the built-in demo responder (`server/src/utils/sakhaDemo.ts`) and `GET /api/sakha` reports `{ demo: true }`, which makes the client show a "Demo mode" badge. |
 | `GEMINI_MODEL` | no | Defaults to `gemini-2.5-flash`, which Google lists as free of charge. Google's pricing page also lists `gemini-3.8-flash` and `gemini-3.6-flash` as free; set `GEMINI_MODEL` to try one. There is no `gemini-3.5-flash`. |
-| `PORT` | no | Defaults to 3001. Render sets it. |
+| `PORT` | no | Defaults to 3001. Hosts such as Render set it. |
 
 ### `client/.env.local`
 
@@ -105,17 +105,21 @@ The login token is a 30-day JWT kept in `localStorage` under `tripsync-user`, an
 The live setup uses free tiers.
 
 - Client on Vercel with `client` as the root directory. `client/vercel.json` rewrites every path to `index.html` so deep links like `/history` work after a refresh. Set `VITE_API_URL` (required, the Render URL ending in `/api`), `VITE_MAPPLS_MAP_SDK_KEY` and `VITE_MAPPLS_REST_API_KEY` in the project settings, then redeploy, because Vite bakes them in at build time.
-- Server on Render as a Node web service with `server` as the root directory. Build command `npm install && npm run build`, start command `npm start`. `typescript` and the `@types/*` packages are regular dependencies so the build works when Render skips dev dependencies. Set `MONGO_URI`, `JWT_SECRET` and `ALLOWED_ORIGINS` (the Vercel URL). `GEMINI_API_KEY` and `GEMINI_MODEL` are optional; leave the key out to keep Sakha in demo mode.
-- MongoDB on an Atlas free cluster. Allow Render's outbound addresses, or `0.0.0.0/0` if you accept that trade-off on a hobby project.
+- Server on Vercel as a serverless function with `server` as the root directory (see "Bringing the live app back from scratch"). It can also run on Render or any Node host with `npm run build && npm start`; set `MONGO_URI`, `JWT_SECRET` and `ALLOWED_ORIGINS`. `GEMINI_API_KEY` and `GEMINI_MODEL` are optional; leave the key out to keep Sakha in demo mode.
+- MongoDB on an Atlas free cluster. Allow `0.0.0.0/0`, because neither Vercel nor Render has fixed outbound addresses on a hobby project.
 
 ### Bringing the live app back from scratch
 
-1. Create a free MongoDB (Atlas M0) and copy its connection string.
-2. In Render choose New > Blueprint and pick this repo. `render.yaml` defines the service. Paste the connection string for `MONGO_URI` when asked. `JWT_SECRET` is generated and `ALLOWED_ORIGINS` is already set to the Vercel URL.
-3. When the service is live, `GET <service URL>/health` should return `healthy`.
-4. In the Vercel project set `VITE_API_URL` to `<service URL>/api` and redeploy the client. Vite reads it at build time.
+The API runs on Vercel as a serverless function (`server/api/index.ts` wraps the same Express app that `npm start` runs, and `server/vercel.json` sends every path to it).
 
-The Render free tier sleeps when idle, so the first request after a quiet period can take close to a minute.
+1. Create a free MongoDB Atlas M0 cluster, a database user, and allow access from anywhere (`0.0.0.0/0`), since Vercel has no fixed outbound addresses.
+2. Create a Vercel project from this repo with `server` as the root directory, and set `MONGO_URI`, `JWT_SECRET` and `ALLOWED_ORIGINS` (the client's Vercel URL). Leave `GEMINI_API_KEY` unset to keep Sakha in demo mode.
+3. Deploy. `GET <api url>/health` should return `healthy`, and `GET <api url>/api/sakha` should answer without a login error page.
+4. In the client's Vercel project set `VITE_API_URL` to `<api url>/api` and redeploy it. Vite reads it at build time.
+
+A function has no always-on process, so the MongoDB connection is opened once per warm instance and reused. The first request after a quiet period pays for a cold start, which is a second or two and not the minute a sleeping free Render service can take.
+
+Render still works as an alternative: `render.yaml` defines the same API as a Node web service. Use New > Blueprint, paste `MONGO_URI`, and point `VITE_API_URL` at its URL.
 
 ## Troubleshooting
 
