@@ -6,7 +6,7 @@
 - A MongoDB database: local, or a free Atlas cluster
 - Optional, for the full experience: a Mappls account (map SDK key and REST key) and a Google AI Studio key for Gemini
 
-Without the Mappls keys the app still runs. Login, history, saved routes and Sakha work; place suggestions are empty and the map screen shows an explanation.
+Without the Mappls keys the app still runs. Login, history, saved routes and Sakha work; place suggestions are empty, the planner lets you type places, and the navigation screen shows a trip summary and an explanation instead of a map. Without `GEMINI_API_KEY`, Sakha runs in demo mode.
 
 ## First run
 
@@ -16,7 +16,7 @@ cd Trip-Sync
 npm run install:all
 
 cp server/.env.example server/.env      # set MONGO_URI and JWT_SECRET at least
-cp client/.env.example client/.env.local
+cp client/.env.example client/.env.local   # VITE_API_URL is required
 
 npm run dev:server    # terminal 1, http://localhost:3001
 npm run dev:client    # terminal 2, http://localhost:5173
@@ -37,8 +37,8 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `MONGO_URI` | yes | Connection string. The server exits at startup if it is missing. |
 | `JWT_SECRET` | yes | Signing secret. No default. |
 | `ALLOWED_ORIGINS` | no | Comma separated browser origins. Defaults to `http://localhost:5173,http://localhost:3000`. Set it to your Vercel URL in production. |
-| `GEMINI_API_KEY` | no | Enables Sakha. Without it `POST /api/sakha` answers 503. |
-| `GEMINI_MODEL` | no | Defaults to `gemini-3.5-flash`. Change it if that model name is not available to your key. |
+| `GEMINI_API_KEY` | no | Turns on the real Sakha. Without it `POST /api/sakha` answers from the built-in demo responder (`server/src/utils/sakhaDemo.ts`) and `GET /api/sakha` reports `{ demo: true }`, which makes the client show a "Demo mode" badge. |
+| `GEMINI_MODEL` | no | Defaults to `gemini-2.5-flash`, which Google lists as free of charge. Google's pricing page also lists `gemini-3.8-flash` and `gemini-3.6-flash` as free; set `GEMINI_MODEL` to try one. There is no `gemini-3.5-flash`. |
 | `PORT` | no | Defaults to 3001. Render sets it. |
 
 ### `client/.env.local`
@@ -47,7 +47,7 @@ Vite only exposes names that start with `VITE_`, and everything in this file end
 
 | Name | Notes |
 |------|-------|
-| `VITE_API_URL` | API base URL, for example `http://localhost:3001/api`. In development it defaults to that. A production build without it falls back to the deployed Render API configured in `src/services/api.ts`. |
+| `VITE_API_URL` | Required. API base URL, for example `http://localhost:3001/api` (`/api` is added if you leave it off). There is no fallback and no development default. When it is missing the app renders a configuration screen and logs the missing name to the console. It is read at build time, so rebuild or restart `vite` after changing it. |
 | `VITE_MAPPLS_MAP_SDK_KEY` | Loads the map on `/navigation`. |
 | `VITE_MAPPLS_REST_API_KEY` | Place search, geocoding, directions. |
 
@@ -65,15 +65,18 @@ From the repository root:
 | `npm run build` | Builds the server to `server/dist` and the client to `client/dist`. |
 | `npm test` | Server tests. |
 
+The client tests use vitest (`npm test` in `client/`). They cover the pure logic: phone normalisation, distance and duration formatting, route and polyline parsing, API error mapping, how a finished trip is turned into a history entry and request body, and the `VITE_API_URL` handling.
+
 The server tests use Node's built-in runner. `npm test` in `server/` compiles with `tsc` and runs `node --test` on `dist/__tests__`. They cover token handling and the `protect` middleware, phone normalisation, request validation and CORS. They do not need a database.
 
-GitHub Actions (`.github/workflows/ci.yml`) runs install, typecheck, build and the server tests for both packages on every push.
+GitHub Actions (`.github/workflows/ci.yml`) runs install, typecheck, tests and build for both packages on every push.
 
 ## Conventions
 
 - Screens are default exports in `client/src/screens`, registered with `lazy()` in `App.tsx`.
 - Colours, fonts and radii are tokens in `client/src/index.css`. Components use the semantic names (`bg-surface`, `text-ink-soft`) so light and dark both work. Avoid raw hex values in components.
 - Shared UI goes in `components/ui`. Icons are re-exported from `components/ui/icons.tsx` (Lucide), so swapping the set is a one-file change.
+- Changes to trips, saved routes and vehicles are applied on screen first and rolled back with a toast if the server refuses them. Keep new mutations in `TripContext` or `AuthContext` that way, and pass messages through `useToast`.
 - Server routes are plural kebab-case nouns. Controllers throw `HttpError` and never write their own 500 responses.
 
 ### Add a screen
@@ -89,12 +92,20 @@ GitHub Actions (`.github/workflows/ci.yml`) runs install, typecheck, build and t
 3. Mount new route files in `server/src/app.ts`.
 4. Add a test in `server/src/__tests__` if the validation or auth behaviour is worth pinning.
 
+## Session token storage
+
+The login token is a 30-day JWT kept in `localStorage` under `tripsync-user`, and the axios instance sends it as a bearer header. I kept it there on purpose. The alternative, an httpOnly cookie, needs `SameSite=None` cookies between the Vercel and Render domains plus CSRF protection, which is more machinery than this project justifies. The cost is that any script injected into the page could read the token, so the client avoids `dangerouslySetInnerHTML` and third-party scripts. A 401 from the API on a request that carried a token signs the user out.
+
+## Installing on a phone
+
+`client/public/manifest.webmanifest`, the icons next to it and `client/public/sw.js` make the site installable. The service worker is registered only in production builds. It tries the network first for page loads and falls back to the last copy of the app, and it caches the hashed files under `/assets/` the first time they are fetched. It never touches API calls or other origins. After a bad deploy you can remove it by deleting `sw.js` and the registration at the bottom of `client/src/main.tsx`.
+
 ## Deployment
 
 The live setup uses free tiers.
 
-- Client on Vercel with `client` as the root directory. `client/vercel.json` rewrites every path to `index.html` so deep links like `/history` work after a refresh. Set `VITE_API_URL`, `VITE_MAPPLS_MAP_SDK_KEY` and `VITE_MAPPLS_REST_API_KEY` in the project settings.
-- Server on Render as a Node web service with `server` as the root directory. Build command `npm install && npm run build`, start command `npm start`. `typescript` and the `@types/*` packages are regular dependencies so the build works when Render skips dev dependencies. Set `MONGO_URI`, `JWT_SECRET`, `ALLOWED_ORIGINS` (the Vercel URL) and `GEMINI_API_KEY`.
+- Client on Vercel with `client` as the root directory. `client/vercel.json` rewrites every path to `index.html` so deep links like `/history` work after a refresh. Set `VITE_API_URL` (required, the Render URL ending in `/api`), `VITE_MAPPLS_MAP_SDK_KEY` and `VITE_MAPPLS_REST_API_KEY` in the project settings, then redeploy, because Vite bakes them in at build time.
+- Server on Render as a Node web service with `server` as the root directory. Build command `npm install && npm run build`, start command `npm start`. `typescript` and the `@types/*` packages are regular dependencies so the build works when Render skips dev dependencies. Set `MONGO_URI`, `JWT_SECRET` and `ALLOWED_ORIGINS` (the Vercel URL). `GEMINI_API_KEY` and `GEMINI_MODEL` are optional; leave the key out to keep Sakha in demo mode.
 - MongoDB on an Atlas free cluster. Allow Render's outbound addresses, or `0.0.0.0/0` if you accept that trade-off on a hobby project.
 
 The Render free tier sleeps when idle, so the first request after a quiet period can take close to a minute.
@@ -109,15 +120,19 @@ Copy `server/.env.example` to `server/.env` and fill in `MONGO_URI` and `JWT_SEC
 
 The client origin is not in `ALLOWED_ORIGINS`. Include the scheme and port, for example `http://localhost:5173`.
 
-### Sakha says it is not configured
+### The app shows "TripSync is not configured"
 
-Set `GEMINI_API_KEY` on the server and restart it.
+`VITE_API_URL` was not set when the client was built. Set it in `client/.env.local` or the Vercel project settings and rebuild.
+
+### Sakha shows a Demo mode badge
+
+The server has no `GEMINI_API_KEY`. Set it and restart the server to get real answers.
 
 ### Suggestions are empty
 
 `VITE_MAPPLS_REST_API_KEY` is missing or restricted to other domains. Restart `vite` after changing env files.
 
-### The map area shows an error
+### The navigation screen shows directions but no map
 
-`VITE_MAPPLS_MAP_SDK_KEY` is missing or the SDK could not load.
+`VITE_MAPPLS_MAP_SDK_KEY` is missing or the SDK could not load. The note at the top of the screen gives the reason.
 

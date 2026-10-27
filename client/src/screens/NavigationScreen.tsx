@@ -278,11 +278,11 @@ export default function NavigationScreen() {
             <div className="flex flex-wrap items-center gap-2">
               {vehicleNumber && <Plate reg={vehicleNumber} />}
               {waypoints.map((w, i) => (
-                <span key={`${w.name}-${i}`} className="inline-flex max-w-full items-center gap-1 rounded-full border border-line-strong py-1 pl-3 pr-1 text-sm">
+                <span key={`${w.name}-${i}`} className="inline-flex max-w-full items-center gap-1 rounded-full border border-line-strong py-2.5 pl-4 pr-3 text-sm">
                   <span className="truncate">{w.name}</span>
                   <button
                     type="button"
-                    className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-raised"
+                    className="-my-2 -mr-2 grid size-11 shrink-0 place-items-center rounded-full hover:bg-raised"
                     onClick={() => setWaypoints((prev) => prev.filter((_, j) => j !== i))}
                     aria-label={`Remove stop ${w.name}`}
                   >

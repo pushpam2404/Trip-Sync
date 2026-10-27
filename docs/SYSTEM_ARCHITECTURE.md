@@ -32,6 +32,8 @@ Browser (React, Vite build, hosted on Vercel)
 | `/profile/setup-1`, `/profile/setup-2` | Sign-up steps 2 and 3 | needs the credentials from step 1 in memory |
 | `/` | Home | signed in |
 | `/sakha`, `/planner`, `/saved`, `/history` | The four tabs inside the app shell | signed in |
+
+Sub-state that should survive Back, Forward and shared links lives in the URL: `/sakha?tab=route` for Quick route and `/planner?step=2` or `?step=3` for planner steps (a step whose earlier answers are missing falls back to the right one). The Sakha conversation is kept in `sessionStorage` so it survives leaving the screen.
 | `/account` | Profile, theme, vehicles | signed in |
 | `/navigation` | Live map | signed in, needs a trip in `NavigationContext` |
 
@@ -41,6 +43,8 @@ Browser (React, Vite build, hosted on Vercel)
 - `TripContext` holds trip history and saved routes. It loads from the API and keeps a copy in `localStorage` as an offline fallback.
 - `NavigationContext` holds the origin, destination, mode, vehicle and traveller count for the trip being started or driven.
 - `UIContext` holds the theme and which of the two trip-setup sheets is open.
+- `ToastContext` shows short messages. `TripContext` and `AuthContext.saveProfile` apply changes immediately, keep the previous state, and restore it with a toast when the server refuses. Trip history and saved routes also have loading and error states with a retry.
+- `config.ts` reads the Vite variables once. A missing `VITE_API_URL` makes `main.tsx` render `ConfigErrorScreen` instead of the app.
 - `services/api.ts` adds the bearer token to requests. When the server answers 401 to a request that carried a token, it fires an event and `AuthContext` signs the user out.
 
 ### Starting a trip
@@ -49,7 +53,7 @@ Every entry point (Sakha chat card, quick route form, saved route, history, home
 
 ### Navigation screen
 
-`getDirections` calls the Mappls route API and returns a plain `RouteResult` (distance, duration, decoded path, steps). The screen draws the path with the Mappls SDK, watches `navigator.geolocation`, and moves to the next instruction when the device is within 40 m of the next manoeuvre. Distance and drive time are the route estimate at the time it was fetched, not a live countdown.
+If the map SDK cannot load (no key, blocked, offline) the screen replaces the map with a trip summary and, when the route service answered, a step-by-step directions list, plus a note naming the reason. Without the REST key no route can be fetched, so only the summary shows. `getDirections` calls the Mappls route API and returns a plain `RouteResult` (distance, duration, decoded path, steps). The screen draws the path with the Mappls SDK, watches `navigator.geolocation`, and moves to the next instruction when the device is within 40 m of the next manoeuvre. Distance and drive time are the route estimate at the time it was fetched, not a live countdown.
 
 ## Server
 
@@ -118,7 +122,8 @@ All paths start with `/api`. Errors come back as `{ success: false, message, err
 | `GET /saved-routes` | yes | The caller's saved routes. |
 | `POST /saved-routes` | yes | Body: `origin`, `destination`, optional `stay`. |
 | `DELETE /saved-routes/:id` | yes | Delete one. |
-| `POST /sakha` | yes | Body: `message` (up to 2000 characters), optional `history` (up to 40 turns of `{ role, text }`). Returns `{ text, navigationIntent }`. 503 if `GEMINI_API_KEY` is not set. |
+| `POST /sakha` | yes | Body: `message` (up to 2000 characters), optional `history` (up to 40 turns of `{ role, text }`). Returns `{ text, navigationIntent, demo }`. With no `GEMINI_API_KEY` it answers from the built-in demo responder and `demo` is true. |
+| `GET /sakha` | yes | Returns `{ demo }`, so the client can show a Demo mode badge before the first message. |
 | `GET /health` | no | Liveness check (not under `/api`). |
 
 ### Security notes
@@ -129,6 +134,7 @@ All paths start with `/api`. Errors come back as `{ success: false, message, err
 - Every query on trips and saved routes is scoped to the signed-in user, and update handlers copy a fixed list of fields from the body rather than the whole body.
 - Validators insist on strings, so `{ "$gt": "" }` style bodies are rejected before they reach Mongo.
 - Rate limits: 300 requests per 15 minutes per client for the API, 10 failed sign-in or sign-up attempts per 15 minutes, 12 Sakha messages per minute per user. `trust proxy` is set to 1 so limits count real clients behind Render.
+- The client is a PWA shell: `sw.js` caches the app shell and hashed assets only, never API responses.
 - CORS only allows the origins in `ALLOWED_ORIGINS`. JSON bodies are capped at 100 KB.
 
 ### Sakha flow
@@ -146,5 +152,7 @@ sequenceDiagram
     API-->>App: { text, navigationIntent }
     App-->>User: reply and a "Start navigation" card
 ```
+
+With no `GEMINI_API_KEY` the controller skips Gemini and calls `demoReply` (`server/src/utils/sakhaDemo.ts`): a deterministic set of regular expressions for route phrases ("from X to Y", "X to Y", "route X -> Y") and for petrol, food, ATM, EV, weather, toll and stay questions. It returns the same `{ text, navigationIntent }` shape, so the client has no separate code path.
 
 The system prompt asks Gemini to end a reply with `[NAVIGATE: Origin | Destination]` when the user wants a route. The server strips the tag and returns it as `navigationIntent`.

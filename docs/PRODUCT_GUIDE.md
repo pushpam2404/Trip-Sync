@@ -15,7 +15,7 @@ A "Where to?" shortcut, links to the four main screens with real counts, the las
 ### Sakha
 
 Two modes.
-- *Ask Sakha* is a chat with Gemini. If you say where you are going, the reply carries a card that starts navigation for that route.
+- *Ask Sakha* is a chat with Gemini. If you say where you are going, the reply carries a card that starts navigation for that route. When the server has no Gemini key, a "Demo mode" badge appears and a small built-in responder answers: it understands route phrases and a handful of petrol, food, ATM, EV, stay, toll and weather questions, and says it has no live data.
 - *Quick route* is two place fields with suggestions and voice input, a swap button, and "use my location".
 
 ### Planner
@@ -32,7 +32,7 @@ Trips logged when you end a trip on the map screen: route, vehicle, travellers, 
 
 ### Navigation
 
-The map with the route drawn on it, the next instruction at the top, arrival time, distance and drive time at the bottom. You can add stops (petrol, food, ATM, EV charging, or any searched place) and remove them again.
+The map with the route drawn on it, the next instruction at the top, arrival time, distance and drive time at the bottom. You can add stops (petrol, food, ATM, EV charging, or any searched place) and remove them again. If the map cannot load, the screen shows your trip summary and the directions as a list instead, with a note saying why.
 
 ### Account
 
@@ -49,7 +49,7 @@ Name, theme, and the vehicle list.
 
 Roughly in the order I would do them.
 
-1. Tests for the client screens and a run against the live Mappls API to confirm turn progress on a real drive.
+1. Component and end-to-end tests for the client, and a run against the live Mappls API to confirm turn progress on a real drive.
 2. Offline support: cache the last route and history so the app opens without a connection.
 3. Walking and transit routing through a provider that supports them.
 4. Shared trips, so friends can add stops to the same plan.
