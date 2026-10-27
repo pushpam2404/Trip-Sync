@@ -8,6 +8,7 @@
     "build": "tsc",
     "dev": "nodemon --exec ts-node src/index.ts",
     "typecheck": "tsc --noEmit",
+    "seed:demo": "tsc && node dist/scripts/seed-demo.js",
     "test": "tsc && node --test dist/__tests__/*.test.js"
   },
   "dependencies": {

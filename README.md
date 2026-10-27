@@ -58,6 +58,18 @@ docs/     architecture, developer guide, product notes
 
 More detail in [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md).
 
+## Demo accounts
+
+Open https://trip-sync-rho.vercel.app and sign in with any of these. They all use the password `Demo@1234`, and each has vehicles, past and upcoming trips and saved routes, so the history, saved and account screens have something to show.
+
+| Name | Mobile number | Rides |
+| --- | --- | --- |
+| Aarav Mehta | `9000000001` | Car and scooter, Pune and Mumbai trips |
+| Diya Rao | `9000000002` | Motorcycle, Bengaluru and Coorg trips |
+| Kabir Singh | `9000000003` | Car, Delhi to Rajasthan trips |
+
+Sakha runs in demo mode on the live site, so its answers come from a built-in rule-based responder and not from a language model. To load the same accounts into your own database run `MONGO_URI=... npm run seed:demo` in `server/`. It can be repeated safely and refuses to run with `NODE_ENV=production` unless `ALLOW_DEMO_SEED=1` is set.
+
 ## Running it locally
 
 You need Node 20 or newer and a MongoDB database.
