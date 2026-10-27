@@ -108,6 +108,13 @@ The live setup uses free tiers.
 - Server on Render as a Node web service with `server` as the root directory. Build command `npm install && npm run build`, start command `npm start`. `typescript` and the `@types/*` packages are regular dependencies so the build works when Render skips dev dependencies. Set `MONGO_URI`, `JWT_SECRET` and `ALLOWED_ORIGINS` (the Vercel URL). `GEMINI_API_KEY` and `GEMINI_MODEL` are optional; leave the key out to keep Sakha in demo mode.
 - MongoDB on an Atlas free cluster. Allow Render's outbound addresses, or `0.0.0.0/0` if you accept that trade-off on a hobby project.
 
+### Bringing the live app back from scratch
+
+1. Create a free MongoDB (Atlas M0) and copy its connection string.
+2. In Render choose New > Blueprint and pick this repo. `render.yaml` defines the service. Paste the connection string for `MONGO_URI` when asked. `JWT_SECRET` is generated and `ALLOWED_ORIGINS` is already set to the Vercel URL.
+3. When the service is live, `GET <service URL>/health` should return `healthy`.
+4. In the Vercel project set `VITE_API_URL` to `<service URL>/api` and redeploy the client. Vite reads it at build time.
+
 The Render free tier sleeps when idle, so the first request after a quiet period can take close to a minute.
 
 ## Troubleshooting

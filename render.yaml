@@ -1,0 +1,24 @@
+# Render blueprint for the TripSync API (free tier).
+# Dashboard: New > Blueprint > pick this repo. Render asks for MONGO_URI once;
+# JWT_SECRET is generated for you. Then set VITE_API_URL on Vercel to
+# <the service URL>/api and redeploy the client.
+services:
+  - type: web
+    name: tripsync-backend
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: https://trip-sync-rho.vercel.app
+      # Leave GEMINI_API_KEY unset to keep Sakha in demo mode. To use the real
+      # model, add GEMINI_API_KEY (and optionally GEMINI_MODEL) in the dashboard.
