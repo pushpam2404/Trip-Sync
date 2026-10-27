@@ -1,5 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { m, AnimatePresence } from './motion';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { CloseIcon } from './icons';
 
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
@@ -9,12 +8,27 @@ interface SheetProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Change this when the content swaps to another view, so focus moves into the new view. */
+  focusKey?: string;
 }
 
 /** Modal dialog: bottom sheet on phones, centred on wider screens. Esc and the scrim close it. */
-export function Sheet({ open, onClose, title, children }: SheetProps) {
+export function Sheet({ open, onClose, title, children, focusKey }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // Stay mounted for the length of the exit animation, which is plain CSS so it cannot hang.
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    const timer = setTimeout(() => setMounted(false), 160);
+    return () => clearTimeout(timer);
+  }, [open]);
+
+  const state = open ? 'open' : 'closed';
+
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -55,41 +69,38 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
     };
   }, [open]);
 
+  // Moving between views inside one open sheet: put focus on the first control of the new view.
+  useEffect(() => {
+    if (!open || focusKey === undefined) return;
+    const panel = panelRef.current;
+    const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
+    // skip the close button, which comes first in the DOM
+    const target = Array.from(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).find((el) => el.getAttribute('aria-label') !== 'Close') ?? first;
+    target?.focus();
+  }, [focusKey, open]);
+
+  if (!open && !mounted) return null;
+
   return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <m.div
-            className="absolute inset-0"
-            style={{ background: 'var(--scrim)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={onClose}
-          />
-          <m.div
-            ref={panelRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            tabIndex={-1}
-            className="pb-safe relative max-h-[88dvh] w-full overflow-y-auto rounded-t-[var(--radius-sheet)] border border-line bg-surface px-5 pt-5 shadow-2xl outline-none sm:max-w-md sm:rounded-[var(--radius-sheet)]"
-            initial={{ opacity: 0, y: 48 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 32, transition: { duration: 0.14 } }}
-            transition={{ type: 'spring', damping: 30, stiffness: 400 }}
-          >
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <h2 id={titleId} className="t-heading text-xl">{title}</h2>
-              <button type="button" className="icon-btn -mr-2 -mt-2" onClick={onClose} aria-label="Close">
-                <CloseIcon className="size-5" />
-              </button>
-            </div>
-            {children}
-          </m.div>
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div className="sheet-scrim absolute inset-0" data-state={state} onClick={onClose} />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        data-state={state}
+        className="sheet-panel pb-safe relative max-h-[88dvh] w-full overflow-y-auto rounded-t-[var(--radius-sheet)] border border-line bg-surface px-5 pt-5 shadow-2xl outline-none sm:max-w-md sm:rounded-[var(--radius-sheet)]"
+      >
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <h2 id={titleId} className="t-heading text-xl">{title}</h2>
+          <button type="button" className="icon-btn -mr-2 -mt-2" onClick={onClose} aria-label="Close">
+            <CloseIcon className="size-5" />
+          </button>
         </div>
-      )}
-    </AnimatePresence>
+        {children}
+      </div>
+    </div>
   );
 }

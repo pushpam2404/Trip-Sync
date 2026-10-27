@@ -18,7 +18,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const { trips, savedRoutes } = useTrips();
+  const { trips, savedRoutes, isLoading } = useTrips();
   const startTrip = useStartTrip();
   const navigate = useNavigate();
 
@@ -29,8 +29,8 @@ export default function HomeScreen() {
   const entries = [
     { to: '/sakha', icon: SakhaIcon, title: 'Ask Sakha', text: 'Chat about a route, or type two places and go.' },
     { to: '/planner', icon: PlannerIcon, title: 'Plan a trip', text: 'Find a stay and places to visit near your destination.' },
-    { to: '/saved', icon: SavedIcon, title: 'Saved routes', text: savedRoutes.length ? plural(savedRoutes.length, 'route') + ' ready to drive' : 'Routes you save in the planner show up here.' },
-    { to: '/history', icon: HistoryIcon, title: 'Trip history', text: trips.length ? plural(trips.length, 'trip') + ' logged' : 'Finished trips are logged here.' },
+    { to: '/saved', icon: SavedIcon, title: 'Saved routes', text: isLoading ? 'Loading your routes' : savedRoutes.length ? plural(savedRoutes.length, 'route') + ' ready to drive' : 'Routes you save in the planner show up here.' },
+    { to: '/history', icon: HistoryIcon, title: 'Trip history', text: isLoading ? 'Loading your trips' : trips.length ? plural(trips.length, 'trip') + ' logged' : 'Finished trips are logged here.' },
   ];
 
   return (
@@ -40,7 +40,7 @@ export default function HomeScreen() {
 
       <button
         type="button"
-        onClick={() => navigate('/sakha', { state: { tab: 'route' } })}
+        onClick={() => navigate('/sakha?tab=route')}
         className="mt-8 flex min-h-16 w-full items-center justify-between gap-4 rounded-[var(--radius-control)] bg-accent px-5 text-left text-on-accent transition-[filter] hover:brightness-95"
       >
         <span>

@@ -2,32 +2,42 @@ import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuthLayout } from '../../components/layout/AuthLayout';
+import { FieldError } from '../../components/ui/FieldError';
 import { Notice } from '../../components/ui/Notice';
 
 function PlateInputs({
   title,
   values,
   onChange,
+  showErrors,
 }: {
   title: string;
   values: string[];
   onChange: (next: string[]) => void;
+  showErrors: boolean;
 }) {
   if (values.length === 0) return null;
   return (
     <fieldset className="space-y-3">
       <legend className="field-label">{title}</legend>
-      {values.map((value, i) => (
-        <input
-          key={i}
-          className="input uppercase"
-          value={value}
-          onChange={(e) => onChange(values.map((v, j) => (j === i ? e.target.value.toUpperCase() : v)))}
-          placeholder="MH 12 AB 1234"
-          aria-label={`${title}, vehicle ${i + 1} registration number`}
-          maxLength={20}
-        />
-      ))}
+      {values.map((value, i) => {
+        const invalid = showErrors && value.trim() === '';
+        return (
+          <div key={i}>
+            <input
+              className="input uppercase"
+              value={value}
+              onChange={(e) => onChange(values.map((v, j) => (j === i ? e.target.value.toUpperCase() : v)))}
+              placeholder="MH 12 AB 1234"
+              aria-label={`${title}, vehicle ${i + 1} registration number`}
+              aria-invalid={invalid}
+              aria-describedby={invalid ? `${title}-${i}-err` : undefined}
+              maxLength={20}
+            />
+            <FieldError id={`${title}-${i}-err`}>{invalid && 'Enter the registration number, or skip this step.'}</FieldError>
+          </div>
+        );
+      })}
     </fieldset>
   );
 }
@@ -37,6 +47,7 @@ export default function ProfileSetup2Screen() {
   const [twoWheelers, setTwoWheelers] = useState<string[]>(() => Array(profileSetupData?.numTwoWheelers ?? 0).fill(''));
   const [fourWheelers, setFourWheelers] = useState<string[]>(() => Array(profileSetupData?.numFourWheelers ?? 0).fill(''));
   const [error, setError] = useState('');
+  const [attempted, setAttempted] = useState(false);
 
   if (!profileSetupData || !hasPendingSignup) return <Navigate to="/signup" replace />;
 
@@ -51,6 +62,7 @@ export default function ProfileSetup2Screen() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    setAttempted(true);
     if (allFilled && !isLoading) finish({ twoWheelers, fourWheelers });
   };
 
@@ -68,10 +80,10 @@ export default function ProfileSetup2Screen() {
     >
       <form onSubmit={submit} className="space-y-6" noValidate>
         {error && <Notice>{error}</Notice>}
-        <PlateInputs title="Bikes and scooters" values={twoWheelers} onChange={setTwoWheelers} />
-        <PlateInputs title="Cars" values={fourWheelers} onChange={setFourWheelers} />
+        <PlateInputs title="Bikes and scooters" values={twoWheelers} onChange={setTwoWheelers} showErrors={attempted} />
+        <PlateInputs title="Cars" values={fourWheelers} onChange={setFourWheelers} showErrors={attempted} />
         <div className="space-y-3">
-          <button type="submit" className="btn btn-primary btn-block" disabled={!allFilled || isLoading}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={isLoading}>
             {isLoading && <span className="spinner" aria-hidden="true" />}
             {isLoading ? 'Creating account' : 'Create account'}
           </button>

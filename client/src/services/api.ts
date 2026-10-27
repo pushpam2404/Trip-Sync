@@ -1,20 +1,12 @@
 import axios from 'axios';
 
-// Used for production builds when VITE_API_URL is not set at build time.
-const DEPLOYED_API = 'https://tripsync-backend-true.onrender.com/api';
-
-const resolveBaseUrl = (): string => {
-  const configured = import.meta.env.VITE_API_URL as string | undefined;
-  const raw = configured || (import.meta.env.DEV ? 'http://localhost:3001/api' : DEPLOYED_API);
-  const trimmed = raw.replace(/\/+$/, '');
-  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
-};
+import { config } from '../config';
 
 export const STORAGE_KEY = 'tripsync-user';
 export const UNAUTHORIZED_EVENT = 'tripsync:unauthorized';
 
 const api = axios.create({
-  baseURL: resolveBaseUrl(),
+  baseURL: config.apiUrl,
   headers: { 'Content-Type': 'application/json' },
 });
 

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTrips } from '../../contexts/TripContext';
 import { getCurrentAddress, CURRENT_LOCATION } from '../../services/location';
 import { hasRestKey, resolvePlace, searchNearbyPlaces } from '../../services/mapService';
 import type { NearbyPlace } from '../../types';
+import { m } from '../../components/ui/motion';
+import { RowSkeleton } from '../../components/ui/Skeleton';
 import { PlaceInput } from '../../components/ui/PlaceInput';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Notice } from '../../components/ui/Notice';
@@ -75,9 +77,10 @@ function useNearby(active: boolean, destination: string, keyword: string) {
   const [places, setPlaces] = useState<NearbyPlace[]>([]);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!active || !destination) return;
+    if (!active || !destination || !hasRestKey()) return;
     let cancelled = false;
     setLoading(true);
     setFailed(false);
@@ -93,30 +96,35 @@ function useNearby(active: boolean, destination: string, keyword: string) {
     return () => {
       cancelled = true;
     };
-  }, [active, destination, keyword]);
+  }, [active, destination, keyword, attempt]);
 
-  return { places, loading, failed };
+  return { places, loading, failed, retry: () => setAttempt((n) => n + 1) };
 }
 
 export default function PlannerScreen() {
   const navigate = useNavigate();
   const { savedRoutes, saveRoute, removeRoute } = useTrips();
+  const [params, setParams] = useSearchParams();
 
-  const [step, setStep] = useState(1);
   const [destination, setDestination] = useState('');
-  const [hasBookedStay, setHasBookedStay] = useState(false);
+  // Without a Mappls REST key there is nothing to choose from, so the stay is typed in.
+  const [hasBookedStay, setHasBookedStay] = useState(!hasRestKey());
   const [bookedStay, setBookedStay] = useState('');
-  const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
+  const [selectedStay, setSelectedStay] = useState<{ id: string; name: string } | null>(null);
+  const [customPlace, setCustomPlace] = useState('');
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const stayName = hasBookedStay ? bookedStay.trim() : selectedStay?.name ?? '';
+
+  // The step is in the URL, so Back goes to the previous step. A step whose earlier
+  // answers are missing (page opened directly, or reloaded) falls back to the right one.
+  const requested = Math.min(Math.max(Number(params.get('step')) || 1, 1), 3);
+  const step = !destination.trim() ? 1 : requested === 3 && !stayName ? 2 : requested;
+  const setStep = (next: number) => setParams(next === 1 ? {} : { step: String(next) });
+
   const stays = useNearby(step === 2 && !hasBookedStay, destination, 'hotels and resorts');
   const attractions = useNearby(step === 3, destination, 'tourist attractions');
-
-  const stayName = useMemo(
-    () => (hasBookedStay ? bookedStay.trim() : stays.places.find((s) => s.id === selectedStayId)?.name ?? ''),
-    [hasBookedStay, bookedStay, stays.places, selectedStayId],
-  );
 
   const nextFromDestination = async () => {
     setError(null);
@@ -137,27 +145,38 @@ export default function PlannerScreen() {
     setStep(2);
   };
 
-  const toggleSaved = (place: NearbyPlace) => {
-    const existing = savedRoutes.find((r) => r.origin === stayName && r.destination === place.name);
+  const toggleSaved = (name: string) => {
+    const existing = savedRoutes.find((r) => r.origin === stayName && r.destination === name);
     if (existing) removeRoute(existing.id);
-    else saveRoute(stayName, place.name, stayName);
+    else saveRoute(stayName, name, stayName);
+  };
+
+  const addCustomPlace = (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = customPlace.trim();
+    if (!name) return;
+    if (!savedRoutes.some((r) => r.origin === stayName && r.destination === name)) saveRoute(stayName, name, stayName);
+    setCustomPlace('');
   };
 
   const reset = () => {
-    setStep(1);
     setDestination('');
-    setHasBookedStay(false);
+    setHasBookedStay(!hasRestKey());
     setBookedStay('');
-    setSelectedStayId(null);
+    setSelectedStay(null);
     navigate('/');
   };
+
+  const savedHere = savedRoutes.filter((r) => r.origin === stayName);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-4 sm:px-8 sm:pt-8">
       <PageHeader title="Trip planner">Pick a destination, a place to stay, and the places worth a detour.</PageHeader>
       {!hasRestKey() && (
         <div className="mb-6">
-          <Notice tone="info">Place search needs a Mappls REST key (VITE_MAPPLS_REST_API_KEY), so suggestions and nearby results are empty in this build.</Notice>
+          <Notice tone="info">
+            Place search is off in this build because VITE_MAPPLS_REST_API_KEY is not set. You can still plan: type your destination, your stay and the places you want, and each one is saved as a route.
+          </Notice>
         </div>
       )}
       <Stepper step={step} />
@@ -187,35 +206,49 @@ export default function PlannerScreen() {
 
       {step === 2 && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between gap-4">
-            <label id="booked-label" className="font-semibold">I have already booked a stay</label>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hasBookedStay}
-              aria-labelledby="booked-label"
-              className="switch"
-              onClick={() => setHasBookedStay((v) => !v)}
-            />
-          </div>
+          {hasRestKey() && (
+            <div className="flex items-center justify-between gap-4">
+              <label id="booked-label" className="font-semibold">I have already booked a stay</label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={hasBookedStay}
+                aria-labelledby="booked-label"
+                className="switch"
+                onClick={() => setHasBookedStay((v) => !v)}
+              />
+            </div>
+          )}
 
           {hasBookedStay ? (
             <PlaceInput label="Where are you staying?" value={bookedStay} onChange={setBookedStay} placeholder="Hotel or area" queryBias={destination ? ` near ${destination}` : ''} />
           ) : (
             <section aria-labelledby="stays-heading">
               <h2 id="stays-heading" className="t-heading mb-1">Stays near {destination}</h2>
-              {stays.loading && <div className="py-8"><Spinner label="Looking for stays" /></div>}
-              {!stays.loading && stays.failed && <Notice tone="info">No stays found nearby. Try another destination, or turn on the switch above and type your stay.</Notice>}
+              {stays.loading && <RowSkeleton rows={3} label="Looking for stays" />}
+              {!stays.loading && stays.failed && (
+                <Notice
+                  tone="info"
+                  action={<button type="button" className="btn btn-outline btn-sm" onClick={stays.retry}>Try again</button>}
+                >
+                  No stays found nearby. Try again, or turn on the switch above and type your stay.
+                </Notice>
+              )}
               <ul className="rows" role="list">
                 {stays.places.map((place) => {
-                  const picked = selectedStayId === place.id;
+                  const picked = selectedStay?.id === place.id;
                   return (
                     <PlaceRow
                       key={place.id}
                       place={place}
                       icon={HotelIcon}
                       action={
-                        <button type="button" aria-pressed={picked} className={`btn btn-sm ${picked ? 'btn-primary' : 'btn-outline'}`} onClick={() => setSelectedStayId(place.id)}>
+                        <button
+                          type="button"
+                          aria-pressed={picked}
+                          className={`btn btn-sm ${picked ? 'btn-primary' : 'btn-outline'}`}
+                          onClick={() => setSelectedStay({ id: place.id, name: place.name })}
+                        >
                           {picked ? 'Selected' : 'Select'}
                         </button>
                       }
@@ -242,8 +275,15 @@ export default function PlannerScreen() {
             <p className="mb-1 mt-1 text-ink-soft">
               Add the ones you like. Each becomes a saved route starting from {stayName}.
             </p>
-            {attractions.loading && <div className="py-8"><Spinner label="Looking for places" /></div>}
-            {!attractions.loading && attractions.failed && <Notice tone="info">No places found for this destination.</Notice>}
+            {attractions.loading && <RowSkeleton rows={3} label="Looking for places" />}
+            {!attractions.loading && attractions.failed && (
+              <Notice
+                tone="info"
+                action={<button type="button" className="btn btn-outline btn-sm" onClick={attractions.retry}>Try again</button>}
+              >
+                No places found for this destination. You can add one by name below.
+              </Notice>
+            )}
             <ul className="rows" role="list">
               {attractions.places.map((place) => {
                 const added = savedRoutes.some((r) => r.origin === stayName && r.destination === place.name);
@@ -256,11 +296,14 @@ export default function PlannerScreen() {
                       <button
                         type="button"
                         className={`icon-btn border-[1.5px] ${added ? 'border-ink bg-ink text-bg hover:bg-ink hover:text-bg' : 'border-line-strong'}`}
-                        onClick={() => toggleSaved(place)}
+                        onClick={() => toggleSaved(place.name)}
                         aria-pressed={added}
                         aria-label={added ? `Remove ${place.name} from saved routes` : `Save route to ${place.name}`}
                       >
-                        {added ? <CheckIcon className="size-5" /> : <PlusIcon className="size-5" />}
+                        {/* the tick pops in when a place is saved, confirming the tap */}
+                        <m.span key={String(added)} initial={{ scale: 0.5 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 600, damping: 18 }} className="grid place-items-center">
+                          {added ? <CheckIcon className="size-5" /> : <PlusIcon className="size-5" />}
+                        </m.span>
                       </button>
                     }
                   />
@@ -268,6 +311,18 @@ export default function PlannerScreen() {
               })}
             </ul>
           </section>
+
+          <form onSubmit={addCustomPlace} className="space-y-2">
+            <label htmlFor="custom-place" className="field-label">Add a place by name</label>
+            <div className="flex gap-2">
+              <input id="custom-place" className="input flex-1" value={customPlace} onChange={(e) => setCustomPlace(e.target.value)} placeholder="Venna Lake" maxLength={120} />
+              <button type="submit" className="btn btn-outline" disabled={!customPlace.trim()}>
+                <PlusIcon className="size-4" aria-hidden="true" />
+                Add
+              </button>
+            </div>
+            {savedHere.length > 0 && <p className="field-hint">{savedHere.length} saved from this stay so far.</p>}
+          </form>
 
           <div className="flex flex-wrap gap-3">
             <button type="button" className="btn btn-outline" onClick={() => setStep(2)}>Back</button>

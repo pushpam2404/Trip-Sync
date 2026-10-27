@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useUI } from '../contexts/UIContext';
 import type { UserProfile, Vehicle } from '../types';
 import { Notice } from '../components/ui/Notice';
+import { FieldError } from '../components/ui/FieldError';
 import { Plate } from '../components/ui/Plate';
 import { ArrowLeftIcon, CarIcon, BikeIcon, TrashIcon, PlusIcon, SunIcon, MoonIcon, LogoutIcon } from '../components/ui/icons';
 
@@ -27,6 +28,7 @@ export default function AccountScreen() {
   const [newKind, setNewKind] = useState<Kind>('fourWheelers');
   const [newReg, setNewReg] = useState('');
   const [saving, setSaving] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   if (!user) return null;
@@ -47,18 +49,20 @@ export default function AccountScreen() {
     setNewReg('');
   };
 
+  const nameError =
+    draft.name.trim().length < 2 || !/^[a-zA-Z\s]+$/.test(draft.name.trim())
+      ? 'Use at least 2 letters. Numbers and symbols are not allowed.'
+      : null;
+  const hasEmptyReg = [...draft.twoWheelers, ...draft.fourWheelers].some((v) => !v.regNumber.trim());
+
   const save = async () => {
-    const name = draft.name.trim();
-    if (name.length < 2 || !/^[a-zA-Z\s]+$/.test(name)) {
-      setStatus({ ok: false, text: 'Use at least 2 letters for your name. Numbers and symbols are not allowed.' });
-      return;
-    }
-    if ([...draft.twoWheelers, ...draft.fourWheelers].some((v) => !v.regNumber.trim())) {
-      setStatus({ ok: false, text: 'Fill in every registration number, or remove the empty ones.' });
+    setAttempted(true);
+    if (nameError || hasEmptyReg) {
+      setStatus({ ok: false, text: 'Fix the highlighted fields and save again.' });
       return;
     }
     setSaving(true);
-    const result = await saveProfile({ ...draft, name });
+    const result = await saveProfile({ ...draft, name: draft.name.trim() });
     setSaving(false);
     setStatus(result.success ? { ok: true, text: 'Saved.' } : { ok: false, text: result.message ?? 'Could not save your changes.' });
   };
@@ -79,7 +83,17 @@ export default function AccountScreen() {
           <h2 id="acc-profile" className="t-heading">Profile</h2>
           <div>
             <label htmlFor="acc-name" className="field-label">Full name</label>
-            <input id="acc-name" className="input" value={draft.name} onChange={(e) => edit({ name: e.target.value })} autoComplete="name" maxLength={50} />
+            <input
+              id="acc-name"
+              className="input"
+              value={draft.name}
+              onChange={(e) => edit({ name: e.target.value })}
+              autoComplete="name"
+              maxLength={50}
+              aria-invalid={attempted && !!nameError}
+              aria-describedby={attempted && nameError ? 'acc-name-error' : undefined}
+            />
+            <FieldError id="acc-name-error">{attempted && nameError}</FieldError>
           </div>
           <div>
             <p className="field-label">Phone</p>
@@ -113,12 +127,15 @@ export default function AccountScreen() {
               ) : (
                 <ul className="rows">
                   {draft[key].map((v) => (
-                    <li key={v.id} className="flex items-center gap-2 py-2">
+                    <li key={v.id} className="py-2">
+                     <div className="flex items-center gap-2">
                       <input
                         className="input flex-1 font-semibold uppercase tracking-wide"
                         value={v.regNumber}
                         onChange={(e) => edit({ [key]: draft[key].map((x) => (x.id === v.id ? { ...x, regNumber: e.target.value.toUpperCase() } : x)) })}
                         aria-label={`Registration number, ${label.toLowerCase()}`}
+                        aria-invalid={attempted && !v.regNumber.trim()}
+                        aria-describedby={attempted && !v.regNumber.trim() ? `reg-${v.id}-err` : undefined}
                         maxLength={20}
                       />
                       <button
@@ -129,6 +146,8 @@ export default function AccountScreen() {
                       >
                         <TrashIcon className="size-5" />
                       </button>
+                     </div>
+                     <FieldError id={`reg-${v.id}-err`}>{attempted && !v.regNumber.trim() && 'Enter the registration number, or remove this vehicle.'}</FieldError>
                     </li>
                   ))}
                 </ul>

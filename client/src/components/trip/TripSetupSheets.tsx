@@ -86,7 +86,14 @@ export function TripSetupSheets() {
 
   return (
     <>
-      <Sheet open={activeModal === 'travelMode'} onClose={close} title="How are you travelling?">
+      <Sheet
+        open={activeModal !== null}
+        onClose={close}
+        title={activeModal === 'vehicleSelection' ? (mode === '2W' ? 'Which bike?' : 'Which car?') : 'How are you travelling?'}
+        focusKey={activeModal ?? ''}
+      >
+        {activeModal === 'travelMode' ? (
+          <>
         <p className="mb-4 text-ink-soft">
           {origin} to {destination}
         </p>
@@ -103,10 +110,10 @@ export function TripSetupSheets() {
             </button>
           ))}
         </div>
-      </Sheet>
-
-      <Sheet open={activeModal === 'vehicleSelection'} onClose={close} title={mode === '2W' ? 'Which bike?' : 'Which car?'}>
-        <div className="space-y-5 pb-1">
+                </>
+        ) : (
+          <div className="space-y-5 pb-1">
+        
           <fieldset>
             <legend className="sr-only">Vehicle</legend>
             <div className="rows">
@@ -215,6 +222,8 @@ export function TripSetupSheets() {
             </button>
           </div>
         </div>
+      
+        )}
       </Sheet>
     </>
   );

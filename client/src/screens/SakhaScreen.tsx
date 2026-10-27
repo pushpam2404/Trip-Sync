@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useStartTrip } from '../hooks/useStartTrip';
-import { sendMessageToSakha, type SakhaReply } from '../services/aiService';
+import { getSakhaStatus, sendMessageToSakha, type SakhaReply } from '../services/aiService';
 import { CURRENT_LOCATION, getCurrentAddress } from '../services/location';
 import { m, AnimatePresence } from '../components/ui/motion';
 import { PlaceInput } from '../components/ui/PlaceInput';
@@ -30,16 +30,45 @@ const SUGGESTIONS = [
   'Is the Bengaluru to Coorg drive fine with kids?',
 ];
 
+// The conversation survives moving to another screen and back, but not closing the tab.
+const CHAT_KEY = 'tripsync-chat';
+const readSavedChat = (): ChatMessage[] => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(CHAT_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+  } catch {
+    // ignore and start fresh
+  }
+  return [WELCOME];
+};
+
 let messageCounter = 0;
 const nextId = () => `m${Date.now()}-${messageCounter++}`;
 
 export default function SakhaScreen() {
-  const location = useLocation();
-  const [tab, setTab] = useState<'chat' | 'route'>(location.state?.tab === 'route' ? 'route' : 'chat');
+  // The tab lives in the URL, so back, forward and shared links land on the right one.
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'route' ? 'route' : 'chat';
+  const setTab = (next: 'chat' | 'route') => setParams(next === 'route' ? { tab: 'route' } : {});
+  const [demo, setDemo] = useState(false);
+
+  useEffect(() => {
+    getSakhaStatus().then((status) => setDemo(!!status?.demo));
+  }, []);
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 pt-4 sm:px-8 sm:pt-8">
-      <h1 className="t-title mb-4">Sakha</h1>
+      <div className="mb-4 flex items-center gap-3">
+        <h1 className="t-title">Sakha</h1>
+        {demo && (
+          <span
+            className="rounded-full border-[1.5px] border-line-strong px-2.5 py-0.5 text-sm font-semibold text-ink-soft"
+            title="No Gemini key is set on the server, so Sakha answers from a small built-in responder."
+          >
+            Demo mode
+          </span>
+        )}
+      </div>
       <div className="segmented mb-4 shrink-0" role="tablist" aria-label="Sakha modes">
         <button type="button" role="tab" id="tab-chat" aria-selected={tab === 'chat'} aria-controls="panel-chat" onClick={() => setTab('chat')}>
           Ask Sakha
@@ -49,14 +78,27 @@ export default function SakhaScreen() {
         </button>
       </div>
 
-      {tab === 'chat' ? <Chat /> : <QuickRoute />}
+      {/* Both stay mounted so switching tabs keeps the conversation and the form. */}
+      <div className={tab === 'chat' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+        <Chat onDemo={setDemo} />
+      </div>
+      <div className={tab === 'route' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+        <QuickRoute />
+      </div>
     </div>
   );
 }
 
-function Chat() {
+function Chat({ onDemo }: { onDemo: (demo: boolean) => void }) {
   const startTrip = useStartTrip();
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
+  const [messages, setMessages] = useState<ChatMessage[]>(readSavedChat);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(CHAT_KEY, JSON.stringify(messages));
+    } catch {
+      // storage unavailable; the chat just won't survive leaving the page
+    }
+  }, [messages]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -77,6 +119,7 @@ function Chat() {
 
     try {
       const reply = await sendMessageToSakha(message, history);
+      if (reply.demo !== undefined) onDemo(reply.demo);
       setMessages((prev) => [...prev, { id: nextId(), role: 'model', text: reply.text, navigationIntent: reply.navigationIntent }]);
     } catch (error) {
       setMessages((prev) => [...prev, { id: nextId(), role: 'model', text: (error as Error).message, isError: true }]);

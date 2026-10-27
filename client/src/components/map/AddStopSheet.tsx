@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { LatLng, NearbyPlace, WaypointStop } from '../../types';
-import { calculateDistance, formatDistance, getPlaceDetails, searchNearbyPlaces } from '../../services/mapService';
+import { calculateDistance, formatDistance, getPlaceDetails, hasRestKey, searchNearbyPlaces } from '../../services/mapService';
 import { Sheet } from '../ui/Sheet';
 import { PlaceInput } from '../ui/PlaceInput';
 import { Spinner } from '../ui/Spinner';
@@ -67,6 +67,7 @@ export function AddStopSheet({ open, onClose, around, onAdd }: AddStopSheetProps
     <Sheet open={open} onClose={onClose} title="Add a stop">
       {category === null ? (
         <div className="space-y-5 pb-1">
+          {!hasRestKey() && <Notice tone="info">Stop search is off in this build because VITE_MAPPLS_REST_API_KEY is not set.</Notice>}
           {error && <Notice>{error}</Notice>}
           <PlaceInput label="Search for a place" value={query} onChange={setQuery} onSelect={(s) => addFromSuggestion(s.placeId)} placeholder="Name of a town, hotel, dhaba" />
           <div>

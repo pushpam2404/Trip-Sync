@@ -20,10 +20,12 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
 
   const allMet = RULES.every((rule) => rule.test(password));
+  const [attempted, setAttempted] = useState(false);
   const canSubmit = phone.length === 10 && allMet;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    setAttempted(true);
     if (canSubmit) handleSignup(phone, password);
   };
 
@@ -43,7 +45,7 @@ export default function SignUpScreen() {
       }
     >
       <form onSubmit={submit} className="space-y-5" noValidate>
-        <PhoneField value={phone} onChange={setPhone} />
+        <PhoneField value={phone} onChange={setPhone} showError={attempted} />
         <PasswordField
           label="Password"
           value={password}
@@ -51,6 +53,7 @@ export default function SignUpScreen() {
           autoComplete="new-password"
           placeholder="Create a password"
           describedBy="password-rules"
+          error={attempted && !allMet ? 'Meet every password requirement below.' : null}
         />
         <ul id="password-rules" className="grid gap-1.5 sm:grid-cols-2" aria-label="Password requirements">
           {RULES.map((rule) => {
@@ -64,7 +67,7 @@ export default function SignUpScreen() {
             );
           })}
         </ul>
-        <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit}>
+        <button type="submit" className="btn btn-primary btn-block">
           Continue
         </button>
       </form>

@@ -3,21 +3,18 @@ import { Navigate } from 'react-router-dom';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useTrips } from '../contexts/TripContext';
 import { useMapplsLoader } from '../hooks/useMapplsLoader';
-import { calculateDistance, formatDistance, formatDuration, getDirections, hasRestKey, type Maneuver, type RouteResult } from '../services/mapService';
+import { calculateDistance, formatDistance, formatDuration, getDirections, hasRestKey, type RouteResult } from '../services/mapService';
 import type { LatLng, WaypointStop } from '../types';
 import { AddStopSheet } from '../components/map/AddStopSheet';
 import { Notice } from '../components/ui/Notice';
 import { Spinner } from '../components/ui/Spinner';
 import { Plate } from '../components/ui/Plate';
-import { TurnLeftIcon, TurnRightIcon, StraightIcon, UTurnIcon, MergeIcon, PlusIcon, CloseIcon, LocateIcon } from '../components/ui/icons';
+import { Sheet } from '../components/ui/Sheet';
+import { RouteLine } from '../components/ui/RouteLine';
+import { StepList, MANEUVER_ICON } from '../components/map/StepList';
+import { StraightIcon, PlusIcon, CloseIcon, LocateIcon, RouteIcon, CarIcon, BikeIcon, TrainIcon, WalkIcon, PeopleIcon } from '../components/ui/icons';
 
-const MANEUVER_ICON: Record<Maneuver, typeof StraightIcon> = {
-  left: TurnLeftIcon,
-  right: TurnRightIcon,
-  straight: StraightIcon,
-  uturn: UTurnIcon,
-  merge: MergeIcon,
-};
+const MODE_LABEL = { '4W': ['Car', CarIcon], '2W': ['Bike', BikeIcon], train: ['Train', TrainIcon], walking: ['Walk', WalkIcon] } as const;
 
 const INDIA_CENTRE: LatLng = { lat: 22.9734, lng: 78.6569 };
 
@@ -49,6 +46,7 @@ export default function NavigationScreen() {
   const [stepIndex, setStepIndex] = useState(1);
   const [followUser, setFollowUser] = useState(true);
   const [addingStop, setAddingStop] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
 
   // Map canvas
   useEffect(() => {
@@ -68,6 +66,10 @@ export default function NavigationScreen() {
   useEffect(() => {
     let cancelled = false;
     setRouteError(null);
+    if (!hasRestKey()) {
+      setRouteError('Directions are off in this build because VITE_MAPPLS_REST_API_KEY is not set.');
+      return;
+    }
     getDirections(origin, destination, waypoints).then((result) => {
       if (cancelled) return;
       if (result) {
@@ -155,14 +157,15 @@ export default function NavigationScreen() {
   }, [position]);
 
   const finish = () => {
-    if (route) {
+    // With no REST key a route can never load, so log the trip as planned rather than dropping it.
+    if (route || !hasRestKey()) {
       addTrip({
         from: origin,
         to: destination,
         mode: mode ?? '4W',
         travelers,
         vehicleNumber: vehicleNumber ?? undefined,
-        duration: formatDuration(route.duration),
+        duration: route ? formatDuration(route.duration) : undefined,
         stops: waypoints,
       });
     }
@@ -173,6 +176,8 @@ export default function NavigationScreen() {
 
   const step = route?.steps[stepIndex];
   const StepIcon = step ? MANEUVER_ICON[step.maneuver] : StraightIcon;
+  const mapReady = isLoaded && !loadError;
+  const [modeLabel, ModeIcon] = MODE_LABEL[mode ?? '4W'];
   // Without a GPS fix, measure from where the route starts.
   const toNextTurn = step && route ? formatDistance(calculateDistance(position ?? route.path[0], step.location)) : '';
   const arriveBy = route ? new Date(Date.now() + route.duration * 1000).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '--';
@@ -193,29 +198,47 @@ export default function NavigationScreen() {
               </div>
             </>
           ) : routeError ? (
-            <p className="text-danger">{routeError}</p>
+            <p className="flex items-center gap-2 text-ink-soft"><RouteIcon className="size-5 shrink-0" aria-hidden="true" />Route not available</p>
           ) : (
             <Spinner label="Finding the route" />
           )}
         </div>
       </div>
 
-      {/* Map */}
+      {/* Map, or a directions list when the map cannot load */}
       <div className="relative min-h-0 flex-1 bg-raised">
-        <div ref={mapEl} className="absolute inset-0" />
-        {(loadError || !isLoaded) && (
-          <div className="absolute inset-0 z-10 grid place-items-center bg-raised p-6">
-            {loadError ? (
-              <div className="max-w-sm space-y-2 text-center">
-                <p className="t-heading">The map is not available</p>
-                <p className="text-ink-soft">{loadError.message} The route details below still work.</p>
-              </div>
+        <div ref={mapEl} className={`absolute inset-0 ${mapReady ? '' : 'hidden'}`} />
+        {!mapReady && (
+          <div className="absolute inset-0 overflow-y-auto bg-bg">
+            {!loadError ? (
+              <div className="grid h-full place-items-center p-6"><Spinner label="Loading the map" /></div>
             ) : (
-              <Spinner label="Loading the map" />
+              <div className="mx-auto max-w-2xl space-y-6 px-4 py-5">
+                <Notice tone="info">
+                  {loadError.message} {route ? 'The directions below come from the route service and still work.' : 'Here is your trip summary instead.'}
+                </Notice>
+                {routeError && <Notice tone={hasRestKey() ? 'danger' : 'info'}>{routeError}</Notice>}
+                <section aria-labelledby="trip-summary" className="space-y-4">
+                  <h2 id="trip-summary" className="t-heading">Your trip</h2>
+                  <RouteLine from={origin} to={destination} />
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-2 text-ink-soft">
+                    <span className="inline-flex items-center gap-1.5"><ModeIcon className="size-4" aria-hidden="true" />{modeLabel}</span>
+                    <span className="inline-flex items-center gap-1.5"><PeopleIcon className="size-4" aria-hidden="true" />{travelers} traveller{travelers === 1 ? '' : 's'}</span>
+                  </p>
+                </section>
+                {route && (
+                  <section aria-labelledby="trip-steps" className="space-y-1">
+                    <h2 id="trip-steps" className="t-heading">
+                      Directions <span className="tnum font-normal text-ink-muted">{formatDistance(route.distance)}, {formatDuration(route.duration)}</span>
+                    </h2>
+                    <StepList steps={route.steps} current={stepIndex} />
+                  </section>
+                )}
+              </div>
             )}
           </div>
         )}
-        {locationError && (
+        {mapReady && locationError && (
           <div className="absolute inset-x-3 top-3 z-20">
             <Notice
               action={
@@ -228,7 +251,7 @@ export default function NavigationScreen() {
             </Notice>
           </div>
         )}
-        {!followUser && position && (
+        {mapReady && !followUser && position && (
           <button type="button" onClick={recenter} className="btn btn-outline absolute bottom-4 right-4 z-10 size-12 bg-surface p-0!" aria-label="Centre the map on my location">
             <LocateIcon className="size-5" />
           </button>
@@ -271,6 +294,12 @@ export default function NavigationScreen() {
           )}
 
           <div className="flex gap-3">
+            {mapReady && route && (
+              <button type="button" className="btn btn-outline" onClick={() => setShowSteps(true)}>
+                <RouteIcon className="size-4" aria-hidden="true" />
+                Steps
+              </button>
+            )}
             <button type="button" className="btn btn-outline flex-1" onClick={() => setAddingStop(true)}>
               <PlusIcon className="size-4" aria-hidden="true" />
               Add stop
@@ -281,6 +310,10 @@ export default function NavigationScreen() {
           </div>
         </div>
       </div>
+
+      <Sheet open={showSteps} onClose={() => setShowSteps(false)} title="Directions">
+        {route && <StepList steps={route.steps} current={stepIndex} />}
+      </Sheet>
 
       <AddStopSheet
         open={addingStop}

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { UserProfile, ProfileSetupData, VehicleRegistrationData } from '../types';
+import { normalizePhone } from '../utils/phone';
 import api, { STORAGE_KEY, UNAUTHORIZED_EVENT, errorMessage } from '../services/api';
 
 type Result = { success: boolean; message?: string };
@@ -34,13 +35,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-export const normalizePhone = (phone: string): string => {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) return `+91 ${digits}`;
-  if (digits.length === 12 && digits.startsWith('91')) return `+91 ${digits.slice(2)}`;
-  return phone;
-};
 
 // Everything the app caches for a signed-in user. Cleared on logout.
 const CACHE_KEYS = [STORAGE_KEY, 'tripsync-savedRoutes', 'tripsync-trips'];
@@ -90,6 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ignore
       }
     });
+    try {
+      sessionStorage.removeItem('tripsync-chat');
+    } catch {
+      // ignore
+    }
     pendingCredentials.current = null;
     setHasPendingSignup(false);
     setProfileSetupData(null);
@@ -182,8 +181,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [profileSetupData, navigate],
   );
 
+  const userRef = useRef(user);
+  userRef.current = user;
+
   const saveProfile = useCallback(
     async (draft: Pick<UserProfile, 'name' | 'twoWheelers' | 'fourWheelers'>): Promise<Result> => {
+      const previous = userRef.current;
+      // Show the change straight away; put the old profile back if the server says no.
+      setUser((prev) => (prev ? { ...prev, ...draft, name: draft.name.trim() } : prev));
       try {
         const { data } = await api.patch('/auth/profile', {
           name: draft.name.trim(),
@@ -193,7 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser((prev) => (prev ? { ...toProfile(data), token: prev.token } : prev));
         return { success: true };
       } catch (error) {
-        return { success: false, message: errorMessage(error, 'Could not save your changes.') };
+        setUser(previous);
+        return { success: false, message: errorMessage(error, 'Could not save your changes. Nothing was changed.') };
       }
     },
     [],

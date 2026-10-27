@@ -7,7 +7,9 @@ import axios from 'axios';
 import polyline from '@mapbox/polyline';
 import type { LatLng, NearbyPlace, PlaceSuggestion } from '../types';
 
-const restKey = (): string => import.meta.env.VITE_MAPPLS_REST_API_KEY || '';
+import { config } from '../config';
+
+const restKey = (): string => config.restKey;
 
 export const hasRestKey = (): boolean => restKey().length > 0;
 
@@ -159,7 +161,7 @@ export interface RouteResult {
   steps: RouteStep[];
 }
 
-const toManeuver = (type = '', modifier = ''): Maneuver => {
+export const toManeuver = (type = '', modifier = ''): Maneuver => {
   const text = `${type} ${modifier}`.toLowerCase();
   if (text.includes('uturn') || text.includes('u-turn')) return 'uturn';
   if (text.includes('merge')) return 'merge';
@@ -171,7 +173,7 @@ const toManeuver = (type = '', modifier = ''): Maneuver => {
 const IN_INDIA = (p: LatLng) => p.lat > 5 && p.lat < 38 && p.lng > 66 && p.lng < 99;
 
 /** Route geometry can be an encoded polyline (precision 5 or 6) or GeoJSON. */
-const decodeGeometry = (geometry: unknown): LatLng[] => {
+export const decodeGeometry = (geometry: unknown): LatLng[] => {
   if (typeof geometry === 'string') {
     for (const precision of [5, 6]) {
       try {
@@ -185,6 +187,35 @@ const decodeGeometry = (geometry: unknown): LatLng[] => {
     return (geometry as any).coordinates.map(([lng, lat]: [number, number]) => ({ lat, lng }));
   }
   return [];
+};
+
+/** Turns one route from the Mappls route API into a RouteResult. Pure, so it can be tested without the network. */
+export const parseRoute = (route: any, start: LatLng, end: LatLng): RouteResult | null => {
+  if (!route) return null;
+
+  const legs: any[] = route.legs ?? [];
+  const rawSteps: any[] = legs.flatMap((leg) => leg.steps ?? []);
+  const steps: RouteStep[] = rawSteps.map((s) => {
+    const m = s.maneuver ?? {};
+    const loc: [number, number] | undefined = m.location ?? s.location;
+    const name = s.name ? ` onto ${s.name}` : '';
+    return {
+      instruction: m.instruction ?? s.instruction ?? `${m.modifier ? `Turn ${m.modifier}` : 'Continue'}${name}`,
+      maneuver: toManeuver(m.type, m.modifier),
+      location: { lat: loc?.[1] ?? 0, lng: loc?.[0] ?? 0 },
+      distance: s.distance ?? 0,
+    };
+  });
+
+  let path = decodeGeometry(route.geometry);
+  if (path.length < 2) path = [start, ...steps.map((s) => s.location), end];
+
+  return {
+    distance: route.distance ?? legs.reduce((sum, l) => sum + (l.distance ?? 0), 0),
+    duration: route.duration ?? legs.reduce((sum, l) => sum + (l.duration ?? 0), 0),
+    path,
+    steps,
+  };
 };
 
 export const getDirections = async (
@@ -204,32 +235,7 @@ export const getDirections = async (
       { params: { overview: 'full', steps: 'true' } },
     );
 
-    const route = res.data?.routes?.[0];
-    if (!route) return null;
-
-    const legs: any[] = route.legs ?? [];
-    const rawSteps: any[] = legs.flatMap((leg) => leg.steps ?? []);
-    const steps: RouteStep[] = rawSteps.map((s) => {
-      const m = s.maneuver ?? {};
-      const loc: [number, number] | undefined = m.location ?? s.location;
-      const name = s.name ? ` onto ${s.name}` : '';
-      return {
-        instruction: m.instruction ?? s.instruction ?? `${m.modifier ? `Turn ${m.modifier}` : 'Continue'}${name}`,
-        maneuver: toManeuver(m.type, m.modifier),
-        location: { lat: loc?.[1] ?? 0, lng: loc?.[0] ?? 0 },
-        distance: s.distance ?? 0,
-      };
-    });
-
-    let path = decodeGeometry(route.geometry);
-    if (path.length < 2) path = [start, ...steps.map((s) => s.location), end];
-
-    return {
-      distance: route.distance ?? legs.reduce((sum, l) => sum + (l.distance ?? 0), 0),
-      duration: route.duration ?? legs.reduce((sum, l) => sum + (l.duration ?? 0), 0),
-      path,
-      steps,
-    };
+    return parseRoute(res.data?.routes?.[0], start, end);
   } catch (err) {
     console.error('Mappls directions failed:', err);
     return null;

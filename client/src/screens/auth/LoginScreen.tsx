@@ -11,11 +11,14 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [attempted, setAttempted] = useState(false);
 
   const canSubmit = phone.length === 10 && password.length > 0 && !isLoading;
+  const passwordError = attempted && password.length === 0 ? 'Enter your password.' : null;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    setAttempted(true);
     if (!canSubmit) return;
     setError('');
     const result = await handleLogin(phone, password);
@@ -37,9 +40,9 @@ export default function LoginScreen() {
     >
       <form onSubmit={submit} className="space-y-5" noValidate>
         {error && <Notice>{error}</Notice>}
-        <PhoneField value={phone} onChange={setPhone} />
-        <PasswordField label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
-        <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit}>
+        <PhoneField value={phone} onChange={setPhone} showError={attempted} />
+        <PasswordField label="Password" value={password} onChange={setPassword} autoComplete="current-password" error={passwordError} />
+        <button type="submit" className="btn btn-primary btn-block" disabled={isLoading}>
           {isLoading ? <span className="spinner" aria-hidden="true" /> : null}
           {isLoading ? 'Signing in' : 'Sign in'}
         </button>

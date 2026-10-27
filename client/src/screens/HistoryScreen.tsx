@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTrips } from '../contexts/TripContext';
+import { m, AnimatePresence } from '../components/ui/motion';
+import { ListSkeleton } from '../components/ui/Skeleton';
+import { Notice } from '../components/ui/Notice';
 import { useStartTrip } from '../hooks/useStartTrip';
 import type { Trip } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -15,7 +18,7 @@ const MODE_ICON = { '4W': CarIcon, '2W': BikeIcon, train: TrainIcon, walking: Wa
 function TripItem({ trip, onRepeat, onRemove }: { trip: Trip; onRepeat: () => void; onRemove: () => void }) {
   const ModeIcon = MODE_ICON[trip.mode] ?? CarIcon;
   return (
-    <li className="py-5">
+    <m.li exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.18 } }} style={{ overflow: 'hidden' }} className="py-5">
       <p className="t-meta mb-2">
         {trip.date}
         {trip.duration ? `, route estimate ${trip.duration}` : ''}
@@ -46,12 +49,12 @@ function TripItem({ trip, onRepeat, onRemove }: { trip: Trip; onRepeat: () => vo
           <TrashIcon className="size-5" />
         </button>
       </div>
-    </li>
+    </m.li>
   );
 }
 
 export default function HistoryScreen() {
-  const { trips, removeTrip, clearTrips } = useTrips();
+  const { trips, removeTrip, clearTrips, isLoading, loadError, reload } = useTrips();
   const startTrip = useStartTrip();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -70,19 +73,25 @@ export default function HistoryScreen() {
         {trips.length > 0 ? `${trips.length} trip${trips.length === 1 ? '' : 's'} logged.` : undefined}
       </PageHeader>
 
-      {trips.length === 0 ? (
+      {isLoading && trips.length === 0 ? (
+        <ListSkeleton rows={3} label="Loading trip history" />
+      ) : loadError ? (
+        <Notice action={<button type="button" className="btn btn-outline btn-sm" onClick={reload}>Try again</button>}>{loadError}</Notice>
+      ) : trips.length === 0 ? (
         <EmptyState
           icon={HistoryIcon}
           title="No trips logged yet"
-          action={<Link to="/sakha" state={{ tab: 'route' }} className="btn btn-primary">Start a trip</Link>}
+          action={<Link to="/sakha?tab=route" className="btn btn-primary">Start a trip</Link>}
         >
           When you end a trip on the map screen, it is added here with the route, vehicle and number of travellers.
         </EmptyState>
       ) : (
         <ul className="rows">
-          {trips.map((trip) => (
-            <TripItem key={trip.id} trip={trip} onRepeat={() => startTrip(trip.from, trip.to)} onRemove={() => removeTrip(trip.id)} />
-          ))}
+          <AnimatePresence initial={false}>
+            {trips.map((trip) => (
+              <TripItem key={trip.id} trip={trip} onRepeat={() => startTrip(trip.from, trip.to)} onRemove={() => removeTrip(trip.id)} />
+            ))}
+          </AnimatePresence>
         </ul>
       )}
 

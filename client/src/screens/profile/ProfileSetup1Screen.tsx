@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuthLayout } from '../../components/layout/AuthLayout';
+import { FieldError } from '../../components/ui/FieldError';
 import { CarIcon, BikeIcon } from '../../components/ui/icons';
 
 function Counter({
@@ -39,6 +40,7 @@ export default function ProfileSetup1Screen() {
   const [name, setName] = useState('');
   const [twoWheelers, setTwoWheelers] = useState(0);
   const [fourWheelers, setFourWheelers] = useState(0);
+  const [touched, setTouched] = useState(false);
 
   // Reloading in the middle of sign-up clears the password from memory, so start over.
   if (!hasPendingSignup) return <Navigate to="/signup" replace />;
@@ -48,6 +50,7 @@ export default function ProfileSetup1Screen() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    setTouched(true);
     if (canContinue) startProfileSetup({ name: trimmed, numTwoWheelers: twoWheelers, numFourWheelers: fourWheelers });
   };
 
@@ -70,7 +73,11 @@ export default function ProfileSetup1Screen() {
             autoComplete="name"
             maxLength={50}
             placeholder="Asha Rao"
+            onBlur={() => setTouched(true)}
+            aria-invalid={touched && !canContinue}
+            aria-describedby={touched && !canContinue ? 'name-error' : undefined}
           />
+          <FieldError id="name-error">{touched && !canContinue && 'Enter your name, at least 2 letters.'}</FieldError>
         </div>
         <fieldset>
           <legend className="field-label">How many vehicles do you own?</legend>
@@ -79,7 +86,7 @@ export default function ProfileSetup1Screen() {
             <Counter label="Cars" icon={CarIcon} value={fourWheelers} onChange={setFourWheelers} />
           </div>
         </fieldset>
-        <button type="submit" className="btn btn-primary btn-block" disabled={!canContinue}>
+        <button type="submit" className="btn btn-primary btn-block">
           Continue
         </button>
       </form>

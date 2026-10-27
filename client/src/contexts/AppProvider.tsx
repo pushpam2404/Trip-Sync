@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { LazyMotion, MotionConfig, domAnimation } from 'motion/react';
+import { ToastProvider } from './ToastContext';
 import { AuthProvider } from './AuthContext';
 import { TripProvider } from './TripContext';
 import { NavigationProvider } from './NavigationContext';
@@ -10,13 +11,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user">
       <LazyMotion features={domAnimation} strict>
-      <AuthProvider>
-        <TripProvider>
-          <NavigationProvider>
-            <UIProvider>{children}</UIProvider>
-          </NavigationProvider>
-        </TripProvider>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <TripProvider>
+            <NavigationProvider>
+              <UIProvider>{children}</UIProvider>
+            </NavigationProvider>
+          </TripProvider>
+        </AuthProvider>
+      </ToastProvider>
       </LazyMotion>
     </MotionConfig>
   );

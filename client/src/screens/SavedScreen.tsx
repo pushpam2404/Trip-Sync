@@ -1,4 +1,7 @@
 import { useTrips } from '../contexts/TripContext';
+import { m, AnimatePresence } from '../components/ui/motion';
+import { ListSkeleton } from '../components/ui/Skeleton';
+import { Notice } from '../components/ui/Notice';
 import { useStartTrip } from '../hooks/useStartTrip';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -7,14 +10,18 @@ import { SavedIcon, SwapIcon, TrashIcon, NavigateIcon, HotelIcon } from '../comp
 import { Link } from 'react-router-dom';
 
 export default function SavedScreen() {
-  const { savedRoutes, removeRoute, reverseRoute } = useTrips();
+  const { savedRoutes, removeRoute, reverseRoute, isLoading, loadError, reload } = useTrips();
   const startTrip = useStartTrip();
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-10 pt-4 sm:px-8 sm:pt-8">
       <PageHeader title="Saved routes">One tap to drive any of them.</PageHeader>
 
-      {savedRoutes.length === 0 ? (
+      {isLoading && savedRoutes.length === 0 ? (
+        <ListSkeleton rows={2} label="Loading saved routes" />
+      ) : loadError ? (
+        <Notice action={<button type="button" className="btn btn-outline btn-sm" onClick={reload}>Try again</button>}>{loadError}</Notice>
+      ) : savedRoutes.length === 0 ? (
         <EmptyState
           icon={SavedIcon}
           title="Nothing saved yet"
@@ -24,8 +31,9 @@ export default function SavedScreen() {
         </EmptyState>
       ) : (
         <ul className="rows">
+          <AnimatePresence initial={false}>
           {savedRoutes.map((route) => (
-            <li key={route.id} className="py-5">
+            <m.li key={route.id} exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.18 } }} style={{ overflow: 'hidden' }} className="py-5">
               <RouteLine
                 from={route.origin}
                 to={route.destination}
@@ -56,8 +64,9 @@ export default function SavedScreen() {
                   <TrashIcon className="size-5" />
                 </button>
               </div>
-            </li>
+            </m.li>
           ))}
+          </AnimatePresence>
         </ul>
       )}
     </div>

@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef } from 'react';
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../ui/Logo';
+import { m } from '../ui/motion';
 import { Spinner } from '../ui/Spinner';
 import { HomeIcon, SakhaIcon, PlannerIcon, SavedIcon, HistoryIcon } from '../ui/icons';
 import { TripSetupSheets } from '../trip/TripSetupSheets';
@@ -52,13 +53,18 @@ export function AppShell() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] border-l-4 px-3 font-semibold transition-colors ${
-                  isActive ? 'border-accent bg-raised text-ink' : 'border-transparent text-ink-soft hover:bg-raised hover:text-ink'
+                `relative flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] px-3 font-semibold transition-colors ${
+                  isActive ? 'bg-raised text-ink' : 'text-ink-soft hover:bg-raised hover:text-ink'
                 }`
               }
             >
-              <Icon className="size-5" aria-hidden="true" />
-              {label}
+              {({ isActive }) => (
+                <>
+                  {isActive && <span className="absolute inset-y-0 left-0 w-1 rounded-full bg-accent" aria-hidden="true" />}
+                  <Icon className="size-5" aria-hidden="true" />
+                  {label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -101,7 +107,10 @@ export function AppShell() {
               </div>
             }
           >
-            <Outlet />
+            {/* A short fade when the tab changes, so the switch reads as movement rather than a flash. */}
+            <m.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: [0.25, 1, 0.5, 1] }} className="h-full">
+              <Outlet />
+            </m.div>
           </Suspense>
         </main>
 

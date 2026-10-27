@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { config } from '../config';
 
 const SDK_URL = 'https://sdk.mappls.com/map/sdk/web';
 
@@ -13,7 +14,7 @@ export function useMapplsLoader() {
       return;
     }
 
-    const sdkKey = import.meta.env.VITE_MAPPLS_MAP_SDK_KEY;
+    const sdkKey = config.mapSdkKey;
     if (!sdkKey) {
       setLoadError(new Error('The map key is missing. Set VITE_MAPPLS_MAP_SDK_KEY and rebuild.'));
       return;
