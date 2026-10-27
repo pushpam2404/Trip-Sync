@@ -38,7 +38,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     const path = (req.url || '/').split('?')[0];
-    if (path !== '/' && path !== '/health') {
+    if (path === '/') {
+        return sendJson(res, 200, { success: true, message: 'TripSync API is running', version: '1.1.0' });
+    }
+    if (path !== '/health') {
         try {
             await connect();
         } catch (error) {
