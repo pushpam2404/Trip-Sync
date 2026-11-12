@@ -216,7 +216,8 @@ export const geocodeAddress = (address: string): Promise<LatLng | null> => {
 /** Coordinates for a typed place name. */
 export const resolvePlace = async (text: string): Promise<LatLng | null> => {
   if (!text) return null;
-  const known = [...knownPlaces.values()].find((p) => text === p.name || text === `${p.name}, ${p.address}`);
+  // Only a picked suggestion (its full label) is trusted; a bare name goes to Nominatim, which ranks the main place first.
+  const known = [...knownPlaces.values()].find((p) => p.address && text === `${p.name}, ${p.address}`);
   if (known) return { lat: known.lat, lng: known.lng };
   return geocodeAddress(text);
 };
