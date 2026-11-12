@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTrips } from '../../contexts/TripContext';
 import { getCurrentAddress, CURRENT_LOCATION } from '../../services/location';
-import { hasRestKey, resolvePlace, searchNearbyPlaces } from '../../services/mapService';
+import { resolvePlace, searchNearbyPlaces } from '../../services/mapService';
 import type { NearbyPlace } from '../../types';
 import { m } from '../../components/ui/motion';
 import { RowSkeleton } from '../../components/ui/Skeleton';
@@ -80,14 +80,14 @@ function useNearby(active: boolean, destination: string, keyword: string) {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!active || !destination || !hasRestKey()) return;
+    if (!active || !destination) return;
     let cancelled = false;
     setLoading(true);
     setFailed(false);
     setPlaces([]);
     (async () => {
       const coords = await resolvePlace(destination);
-      const results = await searchNearbyPlaces(keyword, coords ?? undefined, 5000);
+      const results = await searchNearbyPlaces(keyword, coords ?? undefined, 5000, destination);
       if (cancelled) return;
       setPlaces(results.slice(0, 15));
       setFailed(results.length === 0);
@@ -107,8 +107,7 @@ export default function PlannerScreen() {
   const [params, setParams] = useSearchParams();
 
   const [destination, setDestination] = useState('');
-  // Without a Mappls REST key there is nothing to choose from, so the stay is typed in.
-  const [hasBookedStay, setHasBookedStay] = useState(!hasRestKey());
+  const [hasBookedStay, setHasBookedStay] = useState(false);
   const [bookedStay, setBookedStay] = useState('');
   const [selectedStay, setSelectedStay] = useState<{ id: string; name: string } | null>(null);
   const [customPlace, setCustomPlace] = useState('');
@@ -161,7 +160,7 @@ export default function PlannerScreen() {
 
   const reset = () => {
     setDestination('');
-    setHasBookedStay(!hasRestKey());
+    setHasBookedStay(false);
     setBookedStay('');
     setSelectedStay(null);
     navigate('/');
@@ -172,13 +171,6 @@ export default function PlannerScreen() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-4 sm:px-8 sm:pt-8">
       <PageHeader title="Trip planner">Pick a destination, a place to stay, and the places worth a detour.</PageHeader>
-      {!hasRestKey() && (
-        <div className="mb-6">
-          <Notice tone="info">
-            Place search is off in this build because VITE_MAPPLS_REST_API_KEY is not set. You can still plan: type your destination, your stay and the places you want, and each one is saved as a route.
-          </Notice>
-        </div>
-      )}
       <Stepper step={step} />
 
       {step === 1 && (
@@ -206,19 +198,17 @@ export default function PlannerScreen() {
 
       {step === 2 && (
         <div className="space-y-6">
-          {hasRestKey() && (
-            <div className="flex items-center justify-between gap-4">
-              <label id="booked-label" className="font-semibold">I have already booked a stay</label>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={hasBookedStay}
-                aria-labelledby="booked-label"
-                className="switch"
-                onClick={() => setHasBookedStay((v) => !v)}
-              />
-            </div>
-          )}
+          <div className="flex items-center justify-between gap-4">
+            <label id="booked-label" className="font-semibold">I have already booked a stay</label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hasBookedStay}
+              aria-labelledby="booked-label"
+              className="switch"
+              onClick={() => setHasBookedStay((v) => !v)}
+            />
+          </div>
 
           {hasBookedStay ? (
             <PlaceInput label="Where are you staying?" value={bookedStay} onChange={setBookedStay} placeholder="Hotel or area" queryBias={destination ? ` near ${destination}` : ''} />

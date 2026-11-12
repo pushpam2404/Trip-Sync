@@ -1,17 +1,68 @@
 /**
- * Thin wrappers over the Mappls (MapmyIndia) REST APIs. Every function returns
- * an empty result instead of throwing, so screens can show "nothing found"
- * without a try/catch each. The REST key is read from VITE_MAPPLS_REST_API_KEY.
+ * Place search, geocoding and driving directions from free OpenStreetMap
+ * services, called straight from the browser (all three send CORS headers):
+ *
+ * - Nominatim (nominatim.openstreetmap.org): geocoding, reverse geocoding and
+ *   nearby search. Its usage policy allows at most one request a second and no
+ *   type-ahead, so calls go through a one-a-second queue and are only made when
+ *   the user picks a category or starts a trip.
+ * - Photon (photon.komoot.io) and Open-Meteo geocoding: type-ahead suggestions,
+ *   asked together with short timeouts and merged. Photon knows landmarks and
+ *   areas but is sometimes slow; Open-Meteo is fast for towns and cities. A
+ *   typed name that neither suggests still resolves through Nominatim.
+ * - OSRM demo server (router.project-osrm.org): driving routes with steps.
+ *
+ * The Mappls key only draws the map tiles now. Every function returns an empty
+ * result instead of throwing, so screens can show "nothing found" without a
+ * try/catch each. Data © OpenStreetMap contributors.
  */
 import axios from 'axios';
 import polyline from '@mapbox/polyline';
 import type { LatLng, NearbyPlace, PlaceSuggestion } from '../types';
 
-import { config } from '../config';
+const NOMINATIM = 'https://nominatim.openstreetmap.org';
+const PHOTON = 'https://photon.komoot.io/api/';
+const OPEN_METEO = 'https://geocoding-api.open-meteo.com/v1/search';
+const OSRM = 'https://router.project-osrm.org/route/v1/driving';
+/** West, south, east, north: India, used to keep results in the country. */
+const INDIA_BBOX = [68, 6, 98, 37] as const;
 
-const restKey = (): string => config.restKey;
+// Nominatim allows one request a second: queue calls and space them out.
+let nominatimQueue: Promise<unknown> = Promise.resolve();
+let lastNominatimCall = 0;
+const nominatim = <T>(path: string, params: Record<string, string | number>): Promise<T> => {
+  const run = async () => {
+    const wait = lastNominatimCall + 1100 - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastNominatimCall = Date.now();
+    // The public server is sometimes slow for a few seconds; one retry covers it.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const res = await axios.get(`${NOMINATIM}${path}`, { params: { format: 'jsonv2', ...params }, timeout: 15000 });
+        return res.data as T;
+      } catch (err) {
+        if (attempt >= 1) throw err;
+        await new Promise((r) => setTimeout(r, 1100));
+        lastNominatimCall = Date.now();
+      }
+    }
+  };
+  const next = nominatimQueue.then(run, run);
+  nominatimQueue = next.catch(() => undefined);
+  return next;
+};
 
-export const hasRestKey = (): boolean => restKey().length > 0;
+/** Short address from a Nominatim display name: the parts after the place name, up to four. */
+const shortAddress = (displayName = '', name = ''): string =>
+  displayName
+    .split(', ')
+    .filter((part, i) => !(i === 0 && part === name))
+    .filter((part) => !/^\d{6}$/.test(part) && part !== 'India')
+    .slice(0, 4)
+    .join(', ');
+
+/** Places found by nearby search, kept so a picked row needs no second lookup. */
+const knownPlaces = new Map<string, { name: string; address: string; lat: number; lng: number }>();
 
 // ─── Distance ───
 
@@ -40,47 +91,94 @@ export const formatDuration = (seconds: number): string => {
 
 // ─── Search ───
 
+const plain = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const remember = (name: string, address: string, lat: number, lng: number): PlaceSuggestion => {
+  const placeId = `${lat},${lng}`;
+  knownPlaces.set(placeId, { name, address, lat, lng });
+  return { placeId, name, address, label: address ? `${name}, ${address}` : name };
+};
+
+/** Photon: good at partial names, landmarks and areas, but the public server is sometimes slow. */
+const photonSuggestions = async (query: string): Promise<PlaceSuggestion[]> => {
+  const res = await axios.get(PHOTON, { params: { q: query, limit: 6, bbox: INDIA_BBOX.join(','), lang: 'en' }, timeout: 3500 });
+  return (res.data?.features ?? []).map((f: any) => {
+    const p = f.properties ?? {};
+    const [lng, lat] = f.geometry?.coordinates ?? [0, 0];
+    const name = p.name ?? p.city ?? query;
+    return remember(name, [p.city !== name ? p.city : null, p.state].filter(Boolean).join(', '), lat, lng);
+  });
+};
+
+/** Open-Meteo geocoding: fast towns and cities by name prefix, ranked here by population. */
+const openMeteoSuggestions = async (query: string): Promise<PlaceSuggestion[]> => {
+  const res = await axios.get(OPEN_METEO, { params: { name: query, count: 20, countryCode: 'IN', language: 'en' }, timeout: 4000 });
+  const rows: any[] = res.data?.results ?? [];
+  rows.sort((x, y) => (y.population ?? 0) - (x.population ?? 0));
+  return rows.map((r) => remember(plain(r.name), [r.admin2, r.admin1].filter(Boolean).map(plain).join(', '), r.latitude, r.longitude));
+};
+
 export const getAutocompletePredictions = async (query: string): Promise<PlaceSuggestion[]> => {
-  if (!hasRestKey() || !query.trim()) return [];
-  try {
-    const res = await axios.get('https://atlas.mappls.com/api/places/suggest', {
-      params: { query, region: 'ind', access_token: restKey() },
-    });
-    return (res.data?.suggestedLocations ?? []).map((p: any) => ({
-      placeId: p.eLoc,
-      name: p.placeName,
-      address: p.placeAddress ?? '',
-      label: p.placeAddress ? `${p.placeName}, ${p.placeAddress}` : p.placeName,
-    }));
-  } catch (err) {
-    console.error('Mappls suggest failed:', err);
-    return [];
-  }
+  if (!query.trim()) return [];
+  const [photon, meteo] = await Promise.allSettled([photonSuggestions(query), openMeteoSuggestions(query)]);
+  const merged = [photon, meteo].flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  const seen = new Set<string>();
+  return merged
+    .filter((s) => {
+      const key = s.label.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
+};
+
+/** What to ask Nominatim for each category the screens use. */
+const NEARBY_QUERY: Record<string, { q: string; label: string }> = {
+  'hotels and resorts': { q: 'hotel', label: 'Hotel' },
+  'petrol pumps': { q: 'fuel', label: 'Petrol pump' },
+  restaurants: { q: 'restaurant', label: 'Restaurant' },
+  atms: { q: 'atm', label: 'ATM' },
+  'ev charging': { q: 'charging station', label: 'EV charging' },
+};
+
+const boxAround = (c: LatLng, metres: number) => {
+  const dLat = metres / 111_320;
+  const dLng = metres / (111_320 * Math.cos((c.lat * Math.PI) / 180));
+  return `${c.lng - dLng},${c.lat + dLat},${c.lng + dLng},${c.lat - dLat}`;
 };
 
 export const searchNearbyPlaces = async (
   keyword: string,
   location?: LatLng,
   radius = 5000,
+  /** Place name to search near when there are no coordinates, such as the trip destination. */
+  nearText = '',
 ): Promise<NearbyPlace[]> => {
-  if (!hasRestKey()) return [];
+  const { q, label } = NEARBY_QUERY[keyword.toLowerCase()] ?? { q: keyword, label: keyword };
+  const toPlace = (r: any): NearbyPlace => {
+    const lat = Number(r.lat);
+    const lng = Number(r.lon);
+    const name = r.name || label;
+    const address = shortAddress(r.display_name, r.name);
+    const id = `${lat},${lng}`;
+    knownPlaces.set(id, { name, address, lat, lng });
+    return { id, name, address, lat, lng };
+  };
   try {
-    const params: Record<string, string | number> = { keywords: keyword, access_token: restKey() };
-    if (location) {
-      params.refLocation = `${location.lat},${location.lng}`;
-      params.radius = radius;
+    if (!location) {
+      if (!nearText.trim()) return [];
+      const rows = await nominatim<any[]>('/search', { q: `${q} ${nearText}`, countrycodes: 'in', limit: 10 });
+      return rows.map(toPlace);
     }
-    const res = await axios.get('https://atlas.mappls.com/api/places/nearby', { params });
-    return (res.data?.suggestedLocations ?? []).map((p: any) => ({
-      id: p.eLoc,
-      name: p.placeName,
-      address: p.placeAddress ?? '',
-      lat: Number(p.latitude),
-      lng: Number(p.longitude),
-      rating: typeof p.rating === 'number' && p.rating > 0 ? p.rating : undefined,
-    }));
+    // Widen the box once if the first one is nearly empty, as small towns often are.
+    for (const metres of [radius, radius * 4]) {
+      const rows = await nominatim<any[]>('/search', { q, viewbox: boxAround(location, metres), bounded: 1, limit: 12 });
+      if (rows.length >= 3 || metres > radius) return rows.map(toPlace);
+    }
+    return [];
   } catch (err) {
-    console.error('Mappls nearby search failed:', err);
+    console.error('Nearby search failed:', err);
     return [];
   }
 };
@@ -88,55 +186,47 @@ export const searchNearbyPlaces = async (
 export const getPlaceDetails = async (
   placeId: string,
 ): Promise<{ name: string; address: string; lat: number; lng: number } | null> => {
-  if (!hasRestKey()) return null;
-  try {
-    const res = await axios.get('https://atlas.mappls.com/api/places/detail', {
-      params: { eLoc: placeId, access_token: restKey() },
-    });
-    const d = res.data;
-    if (!d) return null;
-    return { name: d.placeName, address: d.placeAddress ?? '', lat: Number(d.latitude), lng: Number(d.longitude) };
-  } catch (err) {
-    console.error('Mappls place details failed:', err);
-    return null;
-  }
+  const known = knownPlaces.get(placeId);
+  if (known) return known;
+  const [lat, lng] = placeId.split(',').map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const name = (await reverseGeocode(lat, lng)) ?? 'Dropped pin';
+  return { name, address: '', lat, lng };
 };
 
-export const geocodeAddress = async (address: string): Promise<LatLng | null> => {
-  if (!hasRestKey()) return null;
-  try {
-    const res = await axios.get('https://atlas.mappls.com/api/places/geocode', {
-      params: { address, access_token: restKey() },
+/** Geocoded names, so a place asked for twice (a retry, a remount) costs one request. */
+const geocoded = new Map<string, Promise<LatLng | null>>();
+
+export const geocodeAddress = (address: string): Promise<LatLng | null> => {
+  const key = address.trim().toLowerCase();
+  if (!key) return Promise.resolve(null);
+  const cached = geocoded.get(key);
+  if (cached) return cached;
+  const lookup = nominatim<any[]>('/search', { q: address, countrycodes: 'in', limit: 1 })
+    .then((rows) => (rows[0] ? { lat: Number(rows[0].lat), lng: Number(rows[0].lon) } : null))
+    .catch((err) => {
+      console.error('Geocoding failed:', err);
+      geocoded.delete(key);
+      return null;
     });
-    const first = res.data?.copResults?.[0] ?? res.data?.copResults;
-    if (!first || first.latitude === undefined) return null;
-    return { lat: parseFloat(first.latitude), lng: parseFloat(first.longitude) };
-  } catch (err) {
-    console.error('Mappls geocode failed:', err);
-    return null;
-  }
+  geocoded.set(key, lookup);
+  return lookup;
 };
 
-/** Coordinates for a typed place name: geocoder first, then the top autosuggest hit. */
+/** Coordinates for a typed place name. */
 export const resolvePlace = async (text: string): Promise<LatLng | null> => {
   if (!text) return null;
-  const direct = await geocodeAddress(text);
-  if (direct) return direct;
-  const [top] = await getAutocompletePredictions(text);
-  if (!top) return null;
-  const details = await getPlaceDetails(top.placeId);
-  return details ? { lat: details.lat, lng: details.lng } : null;
+  const known = [...knownPlaces.values()].find((p) => text === p.name || text === `${p.name}, ${p.address}`);
+  if (known) return { lat: known.lat, lng: known.lng };
+  return geocodeAddress(text);
 };
 
 export const reverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
-  if (!hasRestKey()) return null;
   try {
-    const res = await axios.get(`https://apis.mappls.com/advancedmaps/v1/${restKey()}/rev_geocode`, {
-      params: { lat, lng },
-    });
-    return res.data?.results?.[0]?.formatted_address ?? null;
+    const r = await nominatim<any>('/reverse', { lat, lon: lng, zoom: 16 });
+    return r?.display_name ? shortAddress(r.display_name) : null;
   } catch (err) {
-    console.error('Mappls reverse geocode failed:', err);
+    console.error('Reverse geocoding failed:', err);
     return null;
   }
 };
@@ -189,7 +279,7 @@ export const decodeGeometry = (geometry: unknown): LatLng[] => {
   return [];
 };
 
-/** Turns one route from the Mappls route API into a RouteResult. Pure, so it can be tested without the network. */
+/** Turns one OSRM route into a RouteResult. Pure, so it can be tested without the network. */
 export const parseRoute = (route: any, start: LatLng, end: LatLng): RouteResult | null => {
   if (!route) return null;
 
@@ -223,21 +313,20 @@ export const getDirections = async (
   destination: string | LatLng,
   waypoints: LatLng[] = [],
 ): Promise<RouteResult | null> => {
-  if (!hasRestKey()) return null;
   try {
     const start = typeof origin === 'string' ? await resolvePlace(origin) : origin;
     const end = typeof destination === 'string' ? await resolvePlace(destination) : destination;
     if (!start || !end) return null;
 
     const chain = [start, ...waypoints, end].map((p) => `${p.lng},${p.lat}`).join(';');
-    const res = await axios.get(
-      `https://apis.mappls.com/advancedmaps/v1/${restKey()}/route_adv/driving/${chain}`,
-      { params: { overview: 'full', steps: 'true' } },
-    );
+    const res = await axios.get(`${OSRM}/${chain}`, {
+      params: { overview: 'full', steps: 'true', geometries: 'polyline' },
+      timeout: 15000,
+    });
 
     return parseRoute(res.data?.routes?.[0], start, end);
   } catch (err) {
-    console.error('Mappls directions failed:', err);
+    console.error('Directions failed:', err);
     return null;
   }
 };

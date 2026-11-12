@@ -43,7 +43,7 @@ Name, theme, and the vehicle list.
 - The phone number is the login. There is no OTP check, so anyone who knows a number can try to claim it. Verification would need an SMS provider, which is outside the free tier.
 - Walking and train modes use the same driving route API, so their estimates are for a car. They exist so a trip can be logged with the right mode.
 - History stores the route estimate from when you finished, not a measured trip.
-- Place data comes from Mappls. When Mappls has no rating for a place, none is shown.
+- Place data and routes come from OpenStreetMap (Nominatim, Photon, OSRM). OpenStreetMap has no ratings, so none are shown.
 
 ## Roadmap
 

@@ -1,11 +1,11 @@
 # Architecture
 
-TripSync is a React single-page app talking to an Express API backed by MongoDB. Maps and place search come straight from Mappls in the browser. Sakha, the chat assistant, goes through the API so the Gemini key stays on the server.
+TripSync is a React single-page app talking to an Express API backed by MongoDB. The map comes from the Mappls SDK; place search and directions come straight from free OpenStreetMap services (Photon, Nominatim, OSRM) in the browser. Sakha, the chat assistant, goes through the API so the Gemini key stays on the server.
 
 ```
 Browser (React, Vite build, hosted on Vercel)
   |-- Mappls Web SDK         map canvas on the navigation screen
-  |-- Mappls REST            place search, geocoding, directions
+  |-- OpenStreetMap         Photon (suggestions), Nominatim (places), OSRM (routes)
   |-- TripSync API           /api/auth, /api/trips, /api/saved-routes, /api/sakha
                                |-- MongoDB (Atlas)
                                |-- Gemini (Google AI Studio), Sakha only
@@ -21,7 +21,7 @@ Browser (React, Vite build, hosted on Vercel)
 | `components/ui/` | Small shared pieces: `Sheet` (modal), `PlaceInput` (autosuggest combobox), `Plate`, `RouteLine`, `Notice`, `RoadArt`, icons. |
 | `components/layout/` | `AppShell` (side rail on desktop, tab bar on phones) and `AuthLayout`. |
 | `contexts/` | Four providers: `Auth`, `Trip`, `Navigation`, `UI`. Composed in `AppProvider`. |
-| `services/` | `api.ts` (axios instance), `mapService.ts` (Mappls REST wrappers), `aiService.ts` (Sakha), `location.ts` (browser geolocation). |
+| `services/` | `api.ts` (axios instance), `mapService.ts` (OpenStreetMap search and OSRM routing), `aiService.ts` (Sakha), `location.ts` (browser geolocation). |
 | `hooks/` | `usePlaceSuggestions`, `useSpeechToText`, `useMapplsLoader`, `useStartTrip`. |
 
 ### Routes
@@ -53,7 +53,7 @@ Every entry point (Sakha chat card, quick route form, saved route, history, home
 
 ### Navigation screen
 
-If the map SDK cannot load (no key, blocked, offline) the screen replaces the map with a trip summary and, when the route service answered, a step-by-step directions list, plus a note naming the reason. Without the REST key no route can be fetched, so only the summary shows. `getDirections` calls the Mappls route API and returns a plain `RouteResult` (distance, duration, decoded path, steps). The screen draws the path with the Mappls SDK, watches `navigator.geolocation`, and moves to the next instruction when the device is within 40 m of the next manoeuvre. Distance and drive time are the route estimate at the time it was fetched, not a live countdown.
+If the map SDK cannot load (no key, blocked, offline) the screen replaces the map with a trip summary and, when the route service answered, a step-by-step directions list, plus a note naming the reason. `getDirections` geocodes both ends with Nominatim, calls the OSRM route API and returns a plain `RouteResult` (distance, duration, decoded path, steps). The screen draws the path with the Mappls SDK, watches `navigator.geolocation`, and moves to the next instruction when the device is within 40 m of the next manoeuvre. Distance and drive time are the route estimate at the time it was fetched, not a live countdown.
 
 ## Server
 

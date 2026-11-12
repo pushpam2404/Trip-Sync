@@ -47,7 +47,7 @@ What I have not checked: the map and turn-by-turn guidance against a live Mappls
 | Client | React 19, TypeScript, Vite, Tailwind CSS v4, React Router 7, Motion, Lucide icons |
 | Server | Node, Express 4, TypeScript, Mongoose, express-validator, helmet, express-rate-limit |
 | Data | MongoDB (Atlas free tier in production) |
-| Maps | Mappls web SDK for the map, Mappls REST for search and directions |
+| Maps | Mappls web SDK for the map; OpenStreetMap services for search (Photon, Nominatim) and directions (OSRM) |
 | AI | Google Gemini through `POST /api/sakha`, so the key stays on the server |
 
 ```
@@ -80,13 +80,13 @@ cd Trip-Sync
 npm run install:all
 
 cp server/.env.example server/.env       # fill in MONGO_URI and JWT_SECRET
-cp client/.env.example client/.env.local # optional Mappls keys
+cp client/.env.example client/.env.local # optional Mappls map key
 
 npm run dev:server   # http://localhost:3001
 npm run dev:client   # http://localhost:5173
 ```
 
-`VITE_API_URL` is required. Without it the app shows a configuration screen and logs the missing name to the console. Without Mappls keys the app still runs: place suggestions are empty, the planner lets you type places, and the navigation screen shows a trip summary with a note.
+`VITE_API_URL` is required. Without it the app shows a configuration screen and logs the missing name to the console. Without the Mappls key the app still runs: search and directions work, and the navigation screen lists the directions instead of drawing a map.
 
 ### Sakha demo mode
 
@@ -100,9 +100,9 @@ Leave `GEMINI_API_KEY` unset and `POST /api/sakha` answers from a small rule-bas
 | `server/.env` | `ALLOWED_ORIGINS` | CORS, set to the client URL in production |
 | `server/.env` | `GEMINI_API_KEY`, `GEMINI_MODEL` | real Sakha instead of demo mode; the model defaults to `gemini-2.5-flash` (free tier) |
 | `client/.env.local` | `VITE_API_URL` | required, API base URL such as `http://localhost:3001/api`; read at build time |
-| `client/.env.local` | `VITE_MAPPLS_MAP_SDK_KEY`, `VITE_MAPPLS_REST_API_KEY` | map, search and directions |
+| `client/.env.local` | `VITE_MAPPLS_MAP_SDK_KEY` | the map on the navigation screen |
 
-The two Mappls keys end up in the browser bundle, which is how Mappls expects them to be used. Restrict them to your domains. The Gemini key is never sent to the browser.
+The Mappls key ends up in the browser bundle, which is how Mappls expects it to be used. Restrict them to your domains. The Gemini key is never sent to the browser.
 
 ### Scripts
 

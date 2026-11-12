@@ -16,7 +16,6 @@ export const config = {
   /** Base URL of the TripSync API, always ending in /api. Empty when not configured. */
   apiUrl: rawApiUrl ? normalizeApiUrl(rawApiUrl) : '',
   mapSdkKey: clean(import.meta.env.VITE_MAPPLS_MAP_SDK_KEY),
-  restKey: clean(import.meta.env.VITE_MAPPLS_REST_API_KEY),
 };
 
 /** Names of required variables that are not set. */

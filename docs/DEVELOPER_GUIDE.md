@@ -4,9 +4,9 @@
 
 - Node.js 20 or newer
 - A MongoDB database: local, or a free Atlas cluster
-- Optional, for the full experience: a Mappls account (map SDK key and REST key) and a Google AI Studio key for Gemini
+- Optional, for the full experience: a Mappls account (map SDK key) and a Google AI Studio key for Gemini
 
-Without the Mappls keys the app still runs. Login, history, saved routes and Sakha work; place suggestions are empty, the planner lets you type places, and the navigation screen shows a trip summary and an explanation instead of a map. Without `GEMINI_API_KEY`, Sakha runs in demo mode.
+Without the Mappls key the app still runs. Search, the planner and directions use free OpenStreetMap services (Photon for suggestions, Nominatim for places, OSRM for routes), and the navigation screen lists the directions instead of drawing a map. Without `GEMINI_API_KEY`, Sakha runs in demo mode.
 
 ## First run
 
@@ -49,9 +49,8 @@ Vite only exposes names that start with `VITE_`, and everything in this file end
 |------|-------|
 | `VITE_API_URL` | Required. API base URL, for example `http://localhost:3001/api` (`/api` is added if you leave it off). There is no fallback and no development default. When it is missing the app renders a configuration screen and logs the missing name to the console. It is read at build time, so rebuild or restart `vite` after changing it. |
 | `VITE_MAPPLS_MAP_SDK_KEY` | Loads the map on `/navigation`. |
-| `VITE_MAPPLS_REST_API_KEY` | Place search, geocoding, directions. |
 
-Mappls keys are meant to be used from the browser. Restrict them to your domains in the Mappls console.
+The Mappls key is meant to be used from the browser. Restrict them to your domains in the Mappls console.
 
 ## Scripts
 
@@ -141,7 +140,7 @@ The server has no `GEMINI_API_KEY`. Set it and restart the server to get real an
 
 ### Suggestions are empty
 
-`VITE_MAPPLS_REST_API_KEY` is missing or restricted to other domains. Restart `vite` after changing env files.
+Suggestions come from Photon (photon.komoot.io), a free public service that is sometimes slow; after 4 seconds the app gives up and you can still type a full place name. Nearby search uses Nominatim, which allows one request a second, so the app queues those calls.
 
 ### The navigation screen shows directions but no map
 

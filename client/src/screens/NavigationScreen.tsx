@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useTrips } from '../contexts/TripContext';
 import { useMapplsLoader } from '../hooks/useMapplsLoader';
-import { calculateDistance, formatDistance, formatDuration, getDirections, hasRestKey, type RouteResult } from '../services/mapService';
+import { calculateDistance, formatDistance, formatDuration, getDirections, type RouteResult } from '../services/mapService';
 import type { LatLng, WaypointStop } from '../types';
 import { AddStopSheet } from '../components/map/AddStopSheet';
 import { Notice } from '../components/ui/Notice';
@@ -80,21 +80,13 @@ export default function NavigationScreen() {
   useEffect(() => {
     let cancelled = false;
     setRouteError(null);
-    if (!hasRestKey()) {
-      setRouteError('Directions are off in this build because VITE_MAPPLS_REST_API_KEY is not set.');
-      return;
-    }
     getDirections(origin, destination, waypoints).then((result) => {
       if (cancelled) return;
       if (result) {
         setRoute(result);
         setStepIndex(Math.min(1, Math.max(0, result.steps.length - 1)));
       } else {
-        setRouteError(
-          hasRestKey()
-            ? 'Could not find a route between these places. Check the names and try again.'
-            : 'Directions need a Mappls REST key (VITE_MAPPLS_REST_API_KEY), which is not set in this build.',
-        );
+        setRouteError('Could not find a route between these places. Check the names and try again.');
       }
     });
     return () => {
@@ -171,8 +163,8 @@ export default function NavigationScreen() {
   }, [position]);
 
   const finish = () => {
-    // With no REST key a route can never load, so log the trip as planned rather than dropping it.
-    if (route || !hasRestKey()) {
+    // If the route never loaded, still log the trip as planned rather than dropping it.
+    if (route || routeError) {
       addTrip({
         from: origin,
         to: destination,
@@ -231,7 +223,7 @@ export default function NavigationScreen() {
                 <Notice tone="info">
                   {loadError.message} {route ? 'The directions below come from the route service and still work.' : 'Here is your trip summary instead.'}
                 </Notice>
-                {routeError && <Notice tone={hasRestKey() ? 'danger' : 'info'}>{routeError}</Notice>}
+                {routeError && <Notice tone="danger">{routeError}</Notice>}
                 <section aria-labelledby="trip-summary" className="space-y-4">
                   <h2 id="trip-summary" className="t-heading">Your trip</h2>
                   <RouteLine from={origin} to={destination} />
@@ -327,6 +319,11 @@ export default function NavigationScreen() {
 
       <Sheet open={showSteps} onClose={() => setShowSteps(false)} title="Directions">
         {route && <StepList steps={route.steps} current={stepIndex} />}
+        {route && (
+          <p className="mt-3 text-xs text-ink-soft">
+            Route and places from OpenStreetMap contributors, routed by OSRM.
+          </p>
+        )}
       </Sheet>
 
       <AddStopSheet
