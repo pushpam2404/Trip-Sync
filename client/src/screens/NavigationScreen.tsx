@@ -27,10 +27,14 @@ const dot = `data:image/svg+xml;utf8,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="#1d5fd1" stroke="#fff" stroke-width="3"/></svg>',
 )}`;
 
+const MAP_CONTAINER_ID = 'tripsync-nav-map';
+
 export default function NavigationScreen() {
   const { origin, destination, mode, travelers, vehicleNumber, endNavigation } = useNavigation();
   const { addTrip } = useTrips();
-  const { isLoaded, loadError } = useMapplsLoader();
+  const { isLoaded, loadError: sdkError } = useMapplsLoader();
+  const [mapError, setMapError] = useState<Error | null>(null);
+  const loadError = sdkError ?? mapError;
 
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -51,8 +55,18 @@ export default function NavigationScreen() {
   // Map canvas
   useEffect(() => {
     if (!isLoaded || !mapEl.current || !window.mappls) return;
-    const instance = new window.mappls.Map(mapEl.current, { center: INDIA_CENTRE, zoom: 5, zoomControl: false });
-    instance.addListener('dragstart', () => setFollowUser(false));
+    // The SDK looks the container up by id; a map failure must fall back to the
+    // directions list instead of taking the whole screen down.
+    let instance: any;
+    try {
+      instance = new window.mappls.Map(MAP_CONTAINER_ID, { center: INDIA_CENTRE, zoom: 5, zoomControl: false });
+      if (typeof instance?.addListener === 'function') instance.addListener('dragstart', () => setFollowUser(false));
+      else if (typeof instance?.on === 'function') instance.on('dragstart', () => setFollowUser(false));
+    } catch (err) {
+      console.error('Mappls map failed to start', err);
+      setMapError(new Error('The map could not start.'));
+      return;
+    }
     map.current = instance;
     return () => {
       userMarker.current = null;
@@ -207,7 +221,7 @@ export default function NavigationScreen() {
 
       {/* Map, or a directions list when the map cannot load */}
       <div className="relative min-h-0 flex-1 bg-raised">
-        <div ref={mapEl} className={`absolute inset-0 ${mapReady ? '' : 'hidden'}`} />
+        <div ref={mapEl} id={MAP_CONTAINER_ID} className={`absolute inset-0 ${mapReady ? '' : 'hidden'}`} />
         {!mapReady && (
           <div className="absolute inset-0 overflow-y-auto bg-bg">
             {!loadError ? (
