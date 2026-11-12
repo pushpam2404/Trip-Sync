@@ -193,7 +193,7 @@ export default function NavigationScreen() {
                 <StepIcon className="size-8" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1" aria-live="polite">
-                <p className="font-display text-2xl font-bold leading-tight tnum">{toNextTurn}</p>
+                <p className="font-display text-2xl font-semibold leading-tight tnum">{toNextTurn}</p>
                 <p className="truncate text-ink-soft">{step.instruction.replace(/<[^>]*>/g, '')}</p>
               </div>
             </>
@@ -269,7 +269,7 @@ export default function NavigationScreen() {
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-sm text-ink-muted">{label}</dt>
-                <dd className="tnum font-display text-xl font-bold leading-tight sm:text-2xl">{value}</dd>
+                <dd className="tnum font-display text-xl font-semibold leading-tight sm:text-2xl">{value}</dd>
               </div>
             ))}
           </dl>

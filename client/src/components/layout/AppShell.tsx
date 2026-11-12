@@ -72,7 +72,7 @@ export function AppShell() {
           to="/account"
           className="flex min-h-12 items-center gap-3 rounded-[var(--radius-control)] px-2 text-left transition-colors hover:bg-raised"
         >
-          <span className="grid size-9 place-items-center rounded-full bg-ink font-display text-sm font-bold text-bg" aria-hidden="true">
+          <span className="grid size-9 place-items-center rounded-full bg-ink font-display text-sm font-semibold text-bg" aria-hidden="true">
             {initials(user?.name)}
           </span>
           <span className="min-w-0">
@@ -93,7 +93,7 @@ export function AppShell() {
             aria-label="Account"
             className="grid size-11 place-items-center"
           >
-            <span className="grid size-9 place-items-center rounded-full bg-ink font-display text-sm font-bold text-bg">
+            <span className="grid size-9 place-items-center rounded-full bg-ink font-display text-sm font-semibold text-bg">
               {initials(user?.name)}
             </span>
           </Link>

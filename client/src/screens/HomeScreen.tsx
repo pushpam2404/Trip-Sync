@@ -6,13 +6,7 @@ import { Plate } from '../components/ui/Plate';
 import { RouteLine } from '../components/ui/RouteLine';
 import { SakhaIcon, PlannerIcon, SavedIcon, HistoryIcon, ArrowRightIcon, NavigateIcon } from '../components/ui/icons';
 
-const greeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 5) return 'Up late,';
-  if (hour < 12) return 'Good morning,';
-  if (hour < 17) return 'Good afternoon,';
-  return 'Good evening,';
-};
+const today = () => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -35,8 +29,8 @@ export default function HomeScreen() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-10 pt-6 sm:px-8 sm:pt-10">
-      <p className="text-lg text-ink-soft">{greeting()}</p>
-      <h1 className="t-display mt-1 break-words">{firstName}.</h1>
+      <p className="text-lg text-ink-soft">{today()}</p>
+      <h1 className="t-display mt-1 break-words">{firstName === 'there' ? 'Your trips' : `${firstName}’s trips`}</h1>
 
       <button
         type="button"
@@ -44,7 +38,7 @@ export default function HomeScreen() {
         className="mt-8 flex min-h-16 w-full items-center justify-between gap-4 rounded-[var(--radius-control)] bg-accent px-5 text-left text-on-accent transition-[filter] hover:brightness-95"
       >
         <span>
-          <span className="block font-display text-xl font-bold leading-tight">Where to?</span>
+          <span className="block font-display text-xl font-semibold leading-tight">Where to?</span>
           <span className="block text-sm opacity-80">Start a trip from any two places</span>
         </span>
         <NavigateIcon className="size-6 shrink-0" aria-hidden="true" />

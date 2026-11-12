@@ -25,7 +25,7 @@ function Stepper({ step }: { step: number }) {
           <li key={label} className={`flex items-center ${i < STEPS.length - 1 ? 'flex-1' : ''}`} aria-current={current ? 'step' : undefined}>
             <span className="flex items-center gap-2">
               <span
-                className={`grid size-7 place-items-center rounded-full border-2 text-sm font-bold ${
+                className={`grid size-7 place-items-center rounded-full border-2 text-sm font-semibold ${
                   done ? 'border-ink bg-ink text-bg' : current ? 'border-ink bg-accent text-on-accent' : 'border-line-strong text-ink-muted'
                 }`}
               >

@@ -35,7 +35,7 @@ export {
   Plus as PlusIcon,
   Check as CheckIcon,
   ArrowLeftRight as SwapIcon,
-  Sparkles as SakhaIcon,
+  MessagesSquare as SakhaIcon,
   Compass as PlannerIcon,
   Bookmark as SavedIcon,
   User as UserIcon,

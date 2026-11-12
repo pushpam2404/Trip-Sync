@@ -26,7 +26,7 @@ function Counter({
         <button type="button" className="btn btn-outline size-11 p-0! text-xl" onClick={() => onChange(Math.max(0, value - 1))} disabled={value === 0} aria-label={`Fewer ${label.toLowerCase()}`}>
           &minus;
         </button>
-        <output className="tnum w-10 text-center font-display text-xl font-bold" aria-live="polite">{value}</output>
+        <output className="tnum w-10 text-center font-display text-xl font-semibold" aria-live="polite">{value}</output>
         <button type="button" className="btn btn-outline size-11 p-0! text-xl" onClick={() => onChange(Math.min(10, value + 1))} aria-label={`More ${label.toLowerCase()}`}>
           +
         </button>

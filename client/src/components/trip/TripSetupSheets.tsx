@@ -106,7 +106,7 @@ export function TripSetupSheets() {
               className="flex min-h-24 flex-col items-start justify-between rounded-[var(--radius-control)] border-[1.5px] border-line-strong p-4 text-left transition-colors hover:bg-raised"
             >
               <Icon className="size-6" aria-hidden="true" />
-              <span className="font-display text-lg font-bold">{label}</span>
+              <span className="font-display text-lg font-semibold">{label}</span>
             </button>
           ))}
         </div>
@@ -200,7 +200,7 @@ export function TripSetupSheets() {
               >
                 &minus;
               </button>
-              <output className="tnum w-10 text-center font-display text-xl font-bold" aria-live="polite">{travelers}</output>
+              <output className="tnum w-10 text-center font-display text-xl font-semibold" aria-live="polite">{travelers}</output>
               <button
                 type="button"
                 className="btn btn-outline size-11 p-0! text-xl"

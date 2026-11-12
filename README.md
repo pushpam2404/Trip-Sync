@@ -20,7 +20,7 @@ Live: https://trip-sync-rho.vercel.app
   <img src="docs/screenshots/trip-setup-mobile.png" alt="Choosing a vehicle before starting a trip" width="190">
 </p>
 
-The screenshots come from the real production build running against a throwaway mock API with made-up data (Asha Rao and her trips are not real). Sakha is in demo mode in them. The navigation shot is the no-map view, which lists directions when the map SDK is missing or fails to load; map tiles need a Mappls key, so none are shown.
+The screenshots come from the app running against a local database filled by `npm run seed:demo`, so Aarav Mehta and his trips are made up. Sakha is in demo mode in them. The navigation shot is older and shows a different made-up traveller; it is the no-map view, which lists directions when the map SDK is missing or fails to load; map tiles need a Mappls key, so none are shown.
 
 ## What it does
 
@@ -60,7 +60,7 @@ More detail in [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md).
 
 ## Demo accounts
 
-Open https://trip-sync-rho.vercel.app and sign in with any of these. They all use the password `Demo@1234`, and each has vehicles, past and upcoming trips and saved routes, so the history, saved and account screens have something to show.
+Open https://trip-sync-rho.vercel.app and tap one of these under Try a demo account on the sign-in page, or sign in with the number and password. They all use the password `Demo@1234`, and each has vehicles, past and upcoming trips and saved routes, so the history, saved and account screens have something to show.
 
 | Name | Mobile number | Rides |
 | --- | --- | --- |
